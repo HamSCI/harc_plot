@@ -9,7 +9,7 @@
 conda install -c conda-forge cartopy
 git clone https://github.com/HamSCI/harc_plot.git
 cd harc_plot
-pip setup.py -e .
+pip install -e .
 ```
 
 ## Test Installation
