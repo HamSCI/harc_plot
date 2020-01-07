@@ -1,0 +1,20 @@
+<pre>
+SC 2009
+CONTRIBUTING OBSERVATORIES
+SOD NUR LER ESK NGK VAL HAD DOU BDV CLF HRB NAG GCK MMB EBR SPT KAK KNY GUI HYB GNA CNB LIV			
+YYYY MM dd hh  min  Rise-time       Amplitude (nT)     Qualification   Observatories    Type
+2009 01 30 21 51.7  5 2 5 4 4  09.2 14.6 07.3 06.3 10.0  0 1 1 0 1  ABG FUQ HON KNY MBO  SI
+2009 03 03 06 02.4  6 4 4 4 4  14.4 15.1 07.6 09.5 10.7  1 1 0 1 1  ABG FUQ HON KNY MBO  SI
+2009 04 24 00 53.2  4 5 8 5 4  10.8 15.8 10.0 09.7 12.9  1 1 0 0 1  ABG FUQ HON KNY MBO  SI
+2009 05 28 05 19.0  6 5 5 5 6  28.9 15.8 26.2 18.4 17.7  2 2 2 2 2  ABG HON KNY MBO SJG  SI
+2009 09 03 15 51.9  7 5 5 7 4  16.8 23.5 07.2 16.4 14.9  2 2 0 2 2  ABG FUQ HON KNY MBO  SI
+
+
+Acknowledgements
+
+> We thank ALIBAG and FUQUENE observatories that kindly supplied us with ABG and FUQ data.
+
+> Data of all other observatories have been obtained from the INTERMAGNET source.
+  We thank the national institutes that support them and INTERMAGNET for promoting high
+  standards of magnetic observatory practice. (www.intermagnet.org)
+</pre>

@@ -1,0 +1,37 @@
+<pre>
+SC 2005
+CONTRIBUTING OBSERVATORIES
+SOD NUR LER ESK NGK VAL HAD DOU BDV CLF HRB NAG GCK MMB EBR COI BJI SPT KAK HTY KNY GUI
+HYB GNA CNB
+YYYY MM dd hh  min  Rise-time       Amplitude (nT)      Qualification    Observatories
+2005 01 17 07 48.4  4 5 4 4 5  12.4 12.0 16.6 11.8 06.6   2 1 2 1 0   ABG HON KNY MBO SJG
+2005 01 21 17 11.0  2 2 2 2 2  40.0 36.5 79.2 47.5 28.2   1 2 2 2 2   ABG HON KNY MBO SJG
+2005 05 07 19 16.0  3 4 4 2 2  14.7 10.3 15.8 14.5 09.3   2 1 2 2 2   ABG HON KNY MBO SJG
+2005 05 15 02 38.0  6 4 4 4 4  50.3 37.6 38.0 88.9 58.6   3 3 3 3 3   ABG HON KNY MBO SJG
+2005 06 12 07 45.3  8 8 7 8 8  39.6 30.1 36.0 28.4 29.7   2 2 2 2 2   ABG HON KNY SJG GUI
+2005 06 14 18 35.2  4 7 5 4 5  27.4 22.9 25.1 31.6 20.9   2 2 2 2 2   ABG HON KNY MBO SJG
+2005 06 16 08 47.6  3 3 4 5 3  22.0 20.0 23.7 34.0 12.0   2 1 2 1 0   ABG HON KNY MBO SJG
+2005 07 10 03 36.8  7 3 6 5 5  24.1 07.1 15.4 22.8 17.2   2 1 1 2 2   ABG HON KNY MBO SJG
+2005 07 13 05 12.0  7 6 7 6 7  38.0 19.0 32.5 24.6 24.1   2 1 2 2 2   ABG HON KNY MBO SJG
+2005 08 24 06 13.8  5 3 3 3 2  33.5 25.6 23.6 29.4 16.3   2 2 2 2 2   ABG FUQ HON KNY MBO
+2005 09 02 14 19.2  5 5 5 6 1  18.4 15.5 24.9 20.9 03.0   1 1 1 1 0   ABG HON KNY MBO SJG
+2005 09 09 14 00.2  3 4 4 4 3  35.6 37.5 52.5 50.0 19.9   2 2 2 2 2   ABG HON KNY MBO SJG
+2005 09 11 01 12.8  4 4 1 3 2  39.4 22.5 17.0 82.2 42.0   2 2 1 3 2   ABG HON KNY MBO SJG
+2005 09 15 09 03.6  3 3 3 5 3  19.8 21.4 02.2 29.7 14.0   2 2 2 2 2   ABG HON KNY MBO SJG
+
+
+
+Note:
+ Time values of June 12th and August 24th have been obtained with values of only four observatories.
+ Time data of SJG in June 12th, and of FUQ in August 24th have not been considered.
+
+
+
+Acknowledgements
+
+>  We thank FUQUENE Observatory that kindly supplied us with FUQ data
+
+> Data of all other observatories have been obtained from the INTERMAGNET source.
+  We thank the national institutes that support them and INTERMAGNET for promoting high
+  standards of magnetic observatory practice. (www.intermagnet.org)
+</pre>

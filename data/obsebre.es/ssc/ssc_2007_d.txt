@@ -1,0 +1,26 @@
+<pre>
+SC 2007
+CONTRIBUTING OBSERVATORIES
+SOD NUR LER ESK NGK VAL HAD DOU BDV CLF HRB NAG GCK MMB EBR SPT KAK KNY GUI HYB GNA CNB			
+YYYY MM dd hh  min  Rise-time       Amplitude (nT)     Qualification   Observatories    Type
+2007 05 07 08 25.2  6 6 6 7 6  17.9 12.6 13.4 17.0 15.0  1 0 1 1 0  ABG HON KNY GUI SJG  SSC
+2007 07 20 06 17.0  3 4 3 3 1  10.8 08.0 12.6 08.3 02.5  1 0 2 1 0  ABG HON KNY MBO SJG  SI
+2007 09 27 11 50.6  3 3 4 6 6  09.8 06.1 11.5 20.4 07.3  2 0 2 2 0  ABG HON KNY MBO SJG  SSC
+2007 10 25 11 35.0  5 5 5 5 4  22.8 17.8 23.5 28.0 10.7  2 1 2 2 1  ABG HON KNY MBO SJG  SSC
+2007 11 19 18 10.3  4 3 2 4 2  11.1 17.2 05.5 08.6 09.2  1 2 0 0 1  ABG FUQ HON KNY MBO  SSC
+2007 12 17 02 53.0  5 3 2 4 4  15.8 11.5 10.4 16.0 11.6  2 2 2 2 2  ABG HON KNY MBO SJG  SI
+
+Note:
+ Time value of October 25th has been obtained with data of only four observatories.
+ ABG time data have not been considered
+
+
+
+Acknowledgements
+
+> We thank FUQUENE ObservatorY that kindly supplied us with FUQ data.
+
+> Data of all other observatories have been obtained from the INTERMAGNET source.
+  We thank the national institutes that support them and INTERMAGNET for promoting high
+  standards of magnetic observatory practice. (www.intermagnet.org)
+</pre>

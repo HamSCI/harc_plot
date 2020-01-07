@@ -1,0 +1,51 @@
+<pre>
+SC 2000
+CONTRIBUTING OBSERVATORIES
+SOD NUR WNG NGK VAL BDV CLF HRB NAG GCK MMB AQU EBR COI BJI SPT KAK HTY
+KNY QUE GUI LNP HYB ETT GNA HER CNB TRW
+YYYY MM dd hh  min  Duration  Amplitude Qualification    Observatories
+                     (min)      (nT)
+2000 01 11 14 26.4    4.7       19.6      2 2 2 2 1   ABG FUQ HON KNY MBO
+2000 01 27 14 52.6    8.5       30.5      2 2 2 2 2   ABG FUQ HON KNY MBO
+2000 02  5 15 44.2    5.7       12.5      2 2 2 2 2   ABG FUQ HON KNY MBO
+2000 02 11  2 58.2    4.2       17.8      2 2 2 2 2   ABG HON KNY MBO SJG
+2000 02 11 23 51.8    4.2       40.6      2 2 2 3 2   ABG FUQ HON KNY MBO
+2000 02 20 21 38.6    5.4       25.9      2 2 2 2 2   ABG HON KNY MBO SJG
+2000 03 29 19 23.1    3.9       15.5      2 2 2 1 2   ABG FUQ HON KNY MBO
+2000 04  6 16 40.1    4.4       65.2      2 3 3 2 2   ABG FUQ KNY MBO API
+2000 05 23 14 25.0    5.5       12.2      1 1 1 1 1   ABG FUQ HON KNY MBO
+2000 05 23 17  2.0    3.7       12.7      2 1 2 1 2   ABG FUQ HON KNY MBO
+2000 06  4 15  0.8    3.6       17.0      2 2 2 2 2   ABG FUQ HON KNY MBO
+2000 06  8  9 10.0    3.4       54.2      2 2 3 2 2   ABG HON KNY MBO SJG
+2000 06 11  8  1.0    4.6        8.5      1 2 2 1 2   ABG HON KNY MBO SJG
+2000 06 23 13  2.2    4.2       38.2      2 2 2 2 2   ABG FUQ HON KNY MBO
+2000 07 10  6 37.5    4.4       21.5      2 2 2 2 2   ABG FUQ HON KNY MBO
+2000 07 13  9 41.4    3.5       28.0      3 2 2 2 2   ABG FUQ HON KNY MBO
+2000 07 14 15 32.2    3.2       28.5      1 2 2 1 1   ABG FUQ HON KNY MBO
+2000 07 15 14 37.1    3.0      112.0      3 3 3 3 3   ABG FUQ HON KNY MBO
+2000 07 17  8  6.6    4.2       11.9      1 0 1 2 1   ABG FUQ HON KNY MBO
+2000 07 19 15 26.3    7.0       28.6      2 2 2 2 2   ABG FUQ HON KNY MBO
+2000 07 26 18 57.4    5.4       20.2      1 1 1 1 1   ABG FUQ HON KNY MBO
+2000 07 28  6 32.9    4.2       31.4      2 2 2 2 2   ABG FUQ HON KNY MBO
+2000 08 10  5  0.0    4.2       10.1      1 1 1 1 2   ABG FUQ HON KNY MBO
+2000 08 11 18 45.3    4.8       19.0      2 1 1 2 1   ABG FUQ HON KNY MBO
+2000 09  4 13 32.2    3.8       10.1      1 1 1 1 0   ABG HON KNY MBO SJG
+2000 09  6 17  0.0    4.2       38.8      2 2 2 2 2   ABG FUQ HON KNY MBO
+2000 09 15  4 48.6    7.4       24.4      2 1 2 2 2   ABG FUQ HON KNY MBO
+2000 09 15 19 11.9    5.4       11.9      1 1 1 1 1   ABG FUQ HON KNY MBO
+2000 09 18 14 42.5    6.2       67.8      1 1 0 0 1   ABG FUQ HON KNY MBO
+2000 10  3  0 52.9    4.6       15.0      1 2 1 1 2   ABG FUQ HON KNY MBO
+2000 10  5  3 25.3    5.9       27.9      3 1 3 3 2   ABG FUQ HON KNY MBO
+2000 10 12 22 27.5    5.9       24.9      2 2 2 2 2   ABG FUQ HON KNY MBO
+2000 10 28  9 53.8    6.6       27.6      2 2 2 2 2   ABG FUQ HON KNY MBO
+2000 10 31 17 14.3    4.3       33.8      2 1 2 2 1   ABG FUQ HON KNY MBO
+2000 11  4  2 21.0    5.0       18.0      2 2 1 2 2   ABG HON KNY MBO SJG
+2000 11  6  9 47.3    3.5       15.4      2 1 2 2 2   ABG FUQ HON KNY MBO
+2000 11 10  6 27.0    3.4       56.6      3 3 3 2 2   ABG HON KNY MBO SJG
+2000 11 26  5 52.3    5.4       10.0      1 0 1 1 1   ABG FUQ HON KNY MBO
+2000 11 26  7 58.0    5.3       33.9      1 1 1 1 1   ABG FUQ HON KNY MBO
+2000 11 26 11 57.6    4.5       33.5      1 2 2 2 2   ABG FUQ HON KNY MBO
+2000 11 28  5 30.0    3.2       15.5      1 1 1 1 1   ABG HON KNY MBO SJG
+2000 12  3  4  8.5    7.0        9.0      0 0 1 1 1   ABG FUQ HON KNY MBO
+2000 12 22 19 25.2    7.4        6.0      1 0 0 1 1   ABG HON KNY MBO SJG
+</pre>

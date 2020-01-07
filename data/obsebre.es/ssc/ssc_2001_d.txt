@@ -1,0 +1,67 @@
+<pre>
+SC 2001
+CONTRIBUTING OBSERVATORIES
+SOD NUR WNG NGK VAL BDV CLF HRB NAG GCK MMB AQU EBR COI BJI SPT KAK HTY
+KNY QTA GUI HYB ETT GNA HER CNB
+YYYY MM dd hh  min  Duration  Amplitude Qualification    Observatories
+                     (min)      (nT)
+2001 01 10 16 20.0    4.0       11.1      1 1 0 0 1   ABG HON KNY MBO SJG
+2001 01 13  2 18.4    8.8        9.5      2 2 2 2 2   ABG HON KNY MBO SJG
+2001 01 17 16 31.8    4.5       16.4      2 2 2 1     ABG HON KNY MBO
+2001 01 23 10 47.7    4.8       31.9      2 2 2 2 2   ABG FUQ HON KNY MBO
+2001 01 31  8  4.4    7.6       24.3      3 2 3 2 2   ABG HON KNY MBO SJG
+2001 03  3 11 20.4    4.6       12.7      2 1 2 2 0   ABG HON KNY MBO SJG
+2001 03 19 11 12.8    7.6       17.1      2 2 2 1 1   ABG HON KNY MBO SJG
+2001 03 22 13 40.8    5.4       23.1      2 2 2 2 2   ABG HON KNY MBO SJG
+2001 03 27  1 43.8    6.4       24.6      2 2 2 2 2   ABG HON KNY MBO SJG
+2001 03 27 17 46.0    3.8       24.4      2 2 2 2 3   ABG HON KNY MBO SJG
+2001 03 31  0 51.7    7.4      124.0      3 3 3 3 3   ABG FUQ HON KNY MBO
+2001 04  4 14 54.6    2.6       51.5      2 2 2 2 3   ABG FUQ HON KNY MBO
+2001 04  7 17 32.2    7.8       34.5      1 1 2 1 1   ABG FUQ HON KNY MBO
+2001 04  8 11  0.6    3.2       43.0      2 2 2 2 3   ABG FUQ HON KNY MBO
+2001 04 11 13 43.0    6.2       16.9      1 1 2 1 0   ABG HON KNY MBO SJG
+2001 04 11 15 18.2    3.6       20.4      1 1 1 1 1   ABG HON KNY MBO SJG
+2001 04 13  7 33.2    3.1       16.8      2 2 2 2 2   ABG FUQ HON KNY MBO
+2001 04 13  9 52.8    5.0       42.7      2 2 2 2 2   ABG FUQ HON KNY MBO
+2001 04 18  0 46.2    4.4       33.5      2 3 2 2 2   ABG HON KNY MBO SJG
+2001 04 21 16  0.4    6.6       22.2      2 2 1 2 2   ABG FUQ HON KNY MBO
+2001 04 28  4 59.3    4.0       53.7      3 2 3 3 2   ABG FUQ HON KNY MBO
+2001 05 27 14 57.6    2.8       22.7      2 2 2 2 2   ABG FUQ HON KNY MBO
+2001 06 18  2 59.0    5.3       24.7      2 2 2 2 2   ABG FUQ HON KNY MBO
+2001 08  3  7 15.0    5.4       27.4      2 2 2 2 2   ABG HON KNY MBO SJG
+2001 08 12 11 34.0    5.6       36.1      2 2 2 2 2   ABG FUQ HON KNY MBO
+2001 08 17 11  2.0    3.8       32.6      3 2 2 3 3   ABG FUQ HON KNY MBO
+2001 08 27 19 51.0    4.0       30.3      2 2 2 2 2   ABG HON KNY MBO SJG
+2001 08 30 14 10.2    4.2        9.7      1 1 1 2 0   ABG HON KNY MBO SJG
+2001 09 13  2 33.2    3.4        6.8      1 1 1 1 1   ABG HON KNY MBO SJG
+2001 09 14  2  4.3    5.6       25.7      2 2 2 2 2   ABG FUQ HON KNY MBO
+2001 09 25 20 24.4    2.8       50.5      3 2 3 3 2   ABG HON KNY MBO SJG
+2001 09 29  9 37.8    3.6       19.8      2 2 2 2 2   ABG HON KNY MBO SJG
+2001 09 30 19 24.2    2.2       21.1      2 2 2 2 2   ABG HON KNY MBO SJG
+2001 10 11 17  0.0    4.2       34.8      3 3 3 3 3   ABG HON KNY MBO SJG
+2001 10 21 16 46.3    3.0       61.9      3 3 3 3 3   ABG FUQ HON KNY MBO
+2001 10 25  8 49.2    6.8       33.5      2 2 2 2 2   ABG FUQ HON KNY MBO
+2001 10 28  3 17.8    4.2       27.7      3 2 3 2 2   ABG HON KNY MBO SJG
+2001 10 31 13 47.4    6.8       20.2      2 2 2 2 2   ABG HON KNY MBO SJG
+2001 11  6  1 51.0    2.4       79.5      3 3 3 3 3   ABG HON KNY MBO SJG
+2001 11 15 15  8.3    5.6       22.1      2 2 2 2 2   ABG FUQ HON KNY MBO
+2001 11 19 18 14.0    4.4       18.5      2 2 2 2 2   ABG HON KNY MBO SJG
+2001 11 24  5  1.1    4.6       17.4      1 1 1 1 1   ABG FUQ HON KNY MBO
+2001 11 24  5 55.5    2.9       62.2      3 3 3 3 3   ABG FUQ HON KNY MBO
+2001 12 23 23 15.0    7.6       17.3      2 2 2 2 2   ABG HON KNY MBO SJG
+2001 12 29  5 37.0    3.3       47.1      2 2 2 2 2   ABG HON KNY MBO SJG
+2001 12 30 20  8.4    3.4       27.9      2 2 2 2 2   ABG HON KNY MBO SJG
+
+Notes:
+- The results of January 17th have been obtained with data of only four observatories.
+- The time datum of April 28th has been corrected on August 2011
+
+
+Acknowledgements
+
+> We thank ALIBAG and FUQUENE observatories that kindly supplied us with ABG and FUQ data.
+
+> Data of all other observatories have been obtained from the INTERMAGNET source.
+  We thank the national institutes that support them and INTERMAGNET for promoting high
+  standards of magnetic observatory practice. (www.intermagnet.org)
+</pre>

@@ -1,0 +1,28 @@
+SC 2017
+CONTRIBUTING OBSERVATORIES
+SOD NUR LER ESK WNG NGK VAL HAD DOU BDV HRB NAG GCK MMB EBR SPT KAK KNY GUI HYB GNG CNB LIV		
+YYYY MM dd hh  min  Rise-time          Amplitude (nT)       Qualification   Observatories    Type 
+2017 01 26 08  15   4 4 4 5 4   9.0   7.8  14.2  15.0  11.7  3 3 3 3 3  HON SJG MBO ABG KNY  SSC
+2017 04 21 15  19   3 4 4 4 4   8.5   7.4  13.7  12.4  13.7  1 0 1 1 1  HON SJG MBO ABG KNY   SI
+2017 05 04 21  23   5 5 5 6 5 -23.6 -17.8 -26.9 -21.6 -18.4  3 3 3 3 2  HON SJG MBO ABG KNY   SI 
+2017 05 15 09  16   5 4 6 3 4 -25.9 -16.6 -32.6 -32.5 -31.7  1 1 1 1 1  HON SJG MBO ABG KNY   SI
+2017 05 27 15  34   8 9 4 8 7  12.5  15.4  16.2  19.2  19.2  0 0 2 3 3  HON SJG MBO ABG KNY  SSC
+2017 06 11 14  40   5 4 4 5 5 -14.9 -12.5 -27.1 -22.6 -25.8  0 1 2 2 2  HON SJG MBO ABG KNY   SI
+2017 07 03 03  16   4 5 5 5 4   7.7   8.5  10.2  13.1  11.9  1 2 2 2 1  HON SJG MBO ABG KNY   SI
+2017 07 09 00  10   6 6 5 4 5   6.7   7.8  12.2   9.2   7.0  1 0 1 1 1  HON SJG MBO ABG KNY  SSC
+2017 07 16 05  59   5 4 4 5 5  45.9  40.7  46.7  64.2  58.0  3 3 3 3 3  HON SJG MBO ABG KNY  SSC
+2017 08 31 05  38   4 5 5 5 4  13.9  17.3  20.1  30.0  24.1  2 2 2 1 1  HON SJG MBO ABG KNY  SSC
+2017 09 06 23  43   7 4 4 3 3  21.0  19.3  28.6  18.8  13.6  3 3 3 3 2  HON SJG MBO ABG KNY  SSC
+2017 09 07 23  00   2 3 3 3 2  27.0  32.9  59.9  35.0   4.8  3 3 3 3 0  HON SJG MBO ABG KNY  SSC
+2017 09 12 20  02   7 7 7 7 7  12.6  13.6  23.9  22.3  21.5  2 2 2 3 2  HON SJG MBO ABG KNY  SSC
+2017 09 14 11  16   6 6 7 5 5  13.7   8.3  24.7  15.4  16.7  1 1 1 1 1  HON SJG MBO ABG KNY  SSC
+2017 10 21 06  10   6 6 5 5 5   5.5   6.0   6.9  12.5   8.1  1 0 1 2 2  HON SJG MBO ABG KNY  SSC
+2017 11 25 00  34   6 7 7 8 8  13.1  15.9  22.8  15.5  16.9  3 1 1 2 3  HON SJG MBO ABG KNY   SI 
+2017 11 27 14  42   8 8 8 8 8  -9.5 -18.0 -21.5 -18.0 -16.4  2 2 3 3 3  HON SJG MBO ABG KNY   SI
+2017 12 04 16  13   4 4 4 5 5   8.9   9.2  16.7  17.6  17.0  2 2 2 2 3  HON SJG MBO ABG KNY  SSC 
+
+Acknowledgements
+> Data of the observatories have been obtained from INTERMAGNET source.
+  We thank the national institutes that support them and INTERMAGNET for promoting
+  high standards of magnetic observatory practice. (www.intermagnet.org)
+

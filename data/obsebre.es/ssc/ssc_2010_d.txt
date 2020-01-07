@@ -1,0 +1,19 @@
+<pre>
+SC 2010
+CONTRIBUTING OBSERVATORIES
+SOD NUR LER ESK NGK VAL HAD DOU BDV HRB NAG GCK MMB EBR SPT KAK KNY GUI GNA CNB LIV			
+YYYY MM dd hh  min Rise-time       Amplitude (nT)       Qualification   Observatories   Type
+2010 04 05 08 26.0 5 3 3 5  3  22.9 26.1 27.0  26.3 20.0  2 2 2 1 1  ABG HON KNY MBO SJG SSC
+2010 04 11 13 03.6 4 4 4 4  2  16.3 10.4 19.2  20.2 03.7  2 1 2 2 0  HYB HON KNY MBO SJG SSC
+2010 04 12 16 10.0 9 6 8 8 10  15.5 12.0 22.4  24.6 18.3  1 0 1 1 0  HYB HON KNY MBO SJG SI
+2010 05 28 02 57.2 6 4 5 5  5  25.8 13.2 26.8  17.4 15.5  2 2 2 2 2  ABG HON KNY MBO SJG SSC
+2010 08 03 17 40.6 4 4 4 4  4  25.9 12.3 23.5  24.6 16.3  2 2 2 2 2  ABG HON KNY MBO SJG SSC
+2010 08 04 10 18.8 4 4 4 5  7  78,4 61,6 89,5 102,6 35,4  1 1 1 1 1  ABG HON KNY MBO SJG SSC
+
+
+Acnowledgements
+
+> Data of the observatories have been obtained from INTERMAGNET source.
+  We thank the national institutes that support them and INTERMAGNET for promoting
+  high standards of magnetic observatory practice. (www.intermagnet.org)
+</pre>

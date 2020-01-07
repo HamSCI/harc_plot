@@ -1,0 +1,33 @@
+<pre>
+SC 2006
+CONTRIBUTING OBSERVATORIES
+SOD NUR LER ESK NGK VAL HAD DOU BDV CLF HRB NAG GCK MMB EBR COI BJI SPT KAK HTY KNY GUI HYB
+GNA CNB			
+YYYY MM dd hh  min  Rise-time       Amplitude (nT)     Qualification   Observatories    Type
+2006 01 01 14 04.6  3 2 3 4 2  12.1 07.8 16.6 23.7 09.0  2 2 2 2 2  ABG HON KNY GUI SJG  SI
+2006 04 28 01 16.8  5 1 4 4 4  11.6 10.4 10.3 11.6 14.2  0 1 0 1 2  ABG FUQ HON KNY MBO  SI
+2006 07 09 21 35.8  5 3 4 1 4  15.7 35.6 29.1 05.0 27.3  2 2 2 1 2  ABG FUQ HON KNY MBO  SI
+2006 07 27 13 53.4  4 4 3 5 3  10.0 08.2 11.0 15.1 11.0  1 0 1 1 1  ABG HON KNY GUI SJG  SSC
+2006 08 07 00 35.0  5 5 5 5 5  14.8 12.9 14.4 17.8 11.8  2 2 2 2 2  ABG HON KNY GUI SJG  SSC
+2006 08 17 07 20.8  4 3 3 1 4  14.2 17.8 09.2 06.4 12.5  1 1 1 1 1  ABG FUQ HON KNY MBO  SSC
+2006 08 19 11 31.0  2 3 3 4 2  08.6 06.7 08.0 20.5 04.6  1 0 1 1 0  ABG HON KNY GUI SJG  SSC
+2006 09 04 00 19.0  4 4 4 4 5  15.3 28.1 24.5 13.7 24.6  2 2 2 2 2  ABG FUQ HON KNY MBO  SSC
+2006 12 14 14 14.3  5 3 6 3 3  26.2 49.0 19.6 41.2 34.2  2 2 2 2 2  ABG FUQ HON KNY MBO  SSC
+2006 12 16 17 55.6  7 5 3 5 4  26.2 34.3 08.6 17.8 22.8  1 2 0 0 1  ABG FUQ HON KNY MBO  SI
+2006 12 18 16 36.0  5 8 5 5 5  17.6 29.3 09.5 20.6 20.0  1 0 1 1 0  ABG FUQ HON KNY MBO  SI
+
+
+Note:
+ Time values of August 17th, September 4th and December 14th have been obtained with values
+ of only four observatories. FUQ time data have not been considered.
+
+
+
+Acknowledgements
+
+>  We thank FUQUENE and HYDERABAD Observatories that kindly supplied us with their data
+
+> Data of all other observatories have been obtained from the INTERMAGNET source.
+  We thank the national institutes that support them and INTERMAGNET for promoting high
+  standards of magnetic observatory practice. (www.intermagnet.org)
+</pre>
