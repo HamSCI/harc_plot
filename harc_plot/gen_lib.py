@@ -572,10 +572,10 @@ def sunAzEl(dates,lat,lon):
         els.append(el)
     return azs,els
 
-def calc_solar_zenith(sTime,eTime,sza_lat,sza_lon):
+def calc_solar_zenith(sTime,eTime,sza_lat,sza_lon,minutes=5):
     sza_dts = [sTime]
     while sza_dts[-1] < eTime:
-        sza_dts.append(sza_dts[-1]+datetime.timedelta(minutes=5))
+        sza_dts.append(sza_dts[-1]+datetime.timedelta(minutes=minutes))
 
     azs,els = sunAzEl(sza_dts,sza_lat,sza_lon)
     
