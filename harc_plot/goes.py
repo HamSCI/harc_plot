@@ -72,6 +72,10 @@ def ut_hours(dt_obj):
     ut_hr   = dt_obj.hour + dt_obj.minute/60. + dt_obj.second/3600.
     return ut_hr
 
+def dtGreg_to_datetime(dtg):
+    pdt = datetime.datetime(dtg.year,dtg.month,dtg.day,dtg.hour,dtg.minute,dtg.second)
+    return pdt
+
 def read_goes(sTime,eTime=None,sat_nr=15,data_dir='data/goes'):
     """Download GOES X-Ray Flux data from the NOAA FTP Site and return a
     dictionary containing the metadata and a dataframe.
@@ -232,6 +236,8 @@ def read_goes(sTime,eTime=None,sat_nr=15,data_dir='data/goes'):
     data_dict['xray']   = df_xray
     data_dict['orbit']  = df_orbit
 
+    data_dict['xray'].index  = [dtGreg_to_datetime(x) for x in data_dict['xray'].index]
+    data_dict['orbit'].index = [dtGreg_to_datetime(x) for x in data_dict['orbit'].index]
     return data_dict
 
 def goes_plot_hr(goes_data,ax,var_tags = ['B_AVG'],xkey='ut_hr',xlim=(0,24),ymin=1e-9,ymax=1e-2,
@@ -587,7 +593,6 @@ def find_flares(goes_data,window_minutes=60,min_class='X1',sTime=None,eTime=None
             pass
         
     df_win      = pd.DataFrame({'B_AVG':b_avg[keys]})
-    df_win.index = pd.to_datetime(df_win.index)
 
     flares      = df_win[df_win['B_AVG'] >= flare_value(min_class)]
 
