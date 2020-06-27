@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 
 import numpy as np
+np.seterr(divide = 'ignore') 
 import pandas as pd
 import xarray as xr
 import netCDF4
@@ -176,7 +177,6 @@ class Sza(object):
                 else:
                     sza         = gl.calc_solar_zenith(sTime,eTime,sza_lat,sza_lon)
 
-
                 if 'spot_density' in data_var:
                     sza_dct[group] = {'sza':sza,'lat':sza_lat,'lon':sza_lon}
 
@@ -216,6 +216,11 @@ class Goeser(object):
         flares_combined = pd.DataFrame()
         for sat_nr,gd in goes_dcts.items():
             gd['data']      = goes.read_goes(sTime,eTime,sat_nr=sat_nr)
+
+            # Skip if no GOES data present
+            if gd['data'] is None:
+                continue
+
             flares          = goes.find_flares(gd['data'],min_class='M1',window_minutes=60)
             flares['sat']   = sat_nr
             gd['flares']    = flares
@@ -231,6 +236,7 @@ class Goeser(object):
         eTime   = self.eTime
 
         for sat_nr,gd in self.goes_dcts.items():
+            if gd['data'] is None: continue
             goes.goes_plot(gd['data'],sTime,eTime,ax=ax,
                     var_tags=gd['var_tags'],labels=gd['labels'],
                     legendLoc='upper right',lw=lw)
@@ -297,6 +303,15 @@ class ncLoader(object):
             # Identify Groups in netCDF File
             with netCDF4.Dataset(nc) as nc_fl:
                 groups  = [group for group in nc_fl.groups['time_series'].groups.keys()]
+
+            # Only plot specified xkeys.
+            xkeys = self.kwargs.get('xkeys')
+            if xkeys is not None:
+                new_groups = []
+                for group in groups:
+                    if group in xkeys:
+                        new_groups.append(group)
+                groups = new_groups
 
             # Store DataSets (dss) from each group in an OrderedDict()
             for prefix in prefixes:
@@ -412,7 +427,8 @@ class ncLoader(object):
 
     def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',
             plot_sza=True,subdir=None,geospace_env=None,plot_region=None,
-            plot_kpsymh=True,plot_goes=True,axvlines=None,axvlines_kw={},axvspans=None,time_format={},**kwargs):
+            plot_kpsymh=True,plot_goes=True,axvlines=None,axvlines_kw={},axvspans=None,time_format={},
+            xkeys=None,**kwargs):
         if self.datasets is None:
             return
 
@@ -425,6 +441,11 @@ class ncLoader(object):
             axvlines_kw = {}
 
         for group,ds in self.datasets['time_series'].items():
+
+            #Only plot specified xkeys (i.e. ut_hrs and not slt_mid)
+            if xkeys is not None:
+                if group not in xkeys: continue
+
             map_da  = self.datasets['map'][group]['spot_density']
 
             outdir  = os.path.join(baseout_dir,group)
