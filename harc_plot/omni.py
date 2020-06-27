@@ -217,7 +217,7 @@ class Omni():
 
         if len(kp) > 0:
             color       = low_color
-            markers,stems,base  = ax_1.stem(xvals,kp)
+            markers,stems,base  = ax_1.stem(xvals,kp,use_line_collection=False)
             for stem in stems:
                 stem.set_color(color)
             markers.set_color(color)
