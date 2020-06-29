@@ -16,6 +16,8 @@ import pandas as pd
 import xarray as xr
 import netCDF4
 
+from scipy import signal
+
 import tqdm
 
 from . import gen_lib as gl
@@ -73,8 +75,9 @@ class WavePlot(object):
         names = StepName()
 
         # Compute Index Line
-        name    = names.next_name('sum')
-        da_new  = hist.sum(ykey)
+        name        = names.next_name('sum')
+        name_inx    = name
+        da_new      = hist.sum(ykey)
 
         for freq in freqs:
             data            = hist.sel(freq_MHz=freq).sum(ykey).values
@@ -88,6 +91,7 @@ class WavePlot(object):
         # Compute Background
         fit_order           = 5
         name                = names.next_name('polyfit_{!s}'.format(fit_order))
+        name_pfit           = name
         da_new              = da_new.copy()
         hrs                 = da_new[xkey]
 
@@ -100,6 +104,13 @@ class WavePlot(object):
 
         da_new.attrs['color'] = 'red'
         da_new.attrs['lw']    = 2
+        self.data_set[name] = da_new.copy()
+
+        # Detrend
+        name    = 'DETREND'
+        da_new  = self.data_set[name_inx] - self.data_set[name_pfit]
+
+        da_new.attrs = hist.attrs
         self.data_set[name] = da_new.copy()
 
     def plot_map_ax(self,ax,freq):
@@ -160,6 +171,61 @@ class WavePlot(object):
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
 
+    def plot_detrend_ax(self,ax,freq):
+        data_da     = self.data_set['DETREND']
+        xkey        = data_da.attrs['xkey']
+        ykey        = data_da.attrs['ykey']
+        xlim        = self.xlim
+        ylim        = self.ylim
+
+        data        = data_da.sel(freq_MHz=freq).copy()
+
+        yy          = data_da.sel(freq_MHz=freq)
+        xx          = yy[xkey]
+       
+        ax.plot(xx,yy)
+        
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+
+    def plot_spectrogram_ax(self,ax,freq):
+        data_da     = self.data_set['DETREND']
+        xkey        = data_da.attrs['xkey']
+        ykey        = data_da.attrs['ykey']
+        xlim        = self.xlim
+        ylim        = self.ylim
+
+        data        = data_da.sel(freq_MHz=freq).copy()
+
+        # Sampling period in seconds
+        Ts          = float(data.attrs['dx'])*60.*60.
+        fs          = 1./Ts # Sampling Frequency [Hz]
+
+        yy          = data.values
+        sTime_hr    = np.min(data[xkey].values)
+
+        win_len_hr  = 3.
+        win_len_N   = int((win_len_hr*3600.)/Ts)
+
+        sliding_min = 10.
+        noverlap    = int( (win_len_hr*60. - sliding_min)/(Ts/60.) )
+
+        f, t, Sxx   = signal.spectrogram(yy, fs,nperseg=win_len_N,noverlap=noverlap)
+
+        t_hr        = t/3600. - sTime_hr
+
+        T           = (1./f)/60.    # Period in minutes
+        pcol        = ax.pcolormesh(t_hr, T[1:], Sxx[1:,:], shading='gouraud')
+
+#        ax.set_ylabel('Frequency [Hz]')
+        ax.set_ylabel('Period [min]')
+        ax.set_xlabel(xkey)
+        ax.set_xlim(xlim)
+        ax.set_ylim(180,4)
+
+        fig = ax.get_figure()
+        fig.colorbar(pcol,label='Pwr Spct Dnsty')
+
     def plot_summary(self,**kwargs):
         xlim        = self.xlim
         ylim        = self.ylim
@@ -193,22 +259,30 @@ class WavePlot(object):
         ny          = 3
 
         for freq in freqs:
-            fig     = plt.figure(figsize=(30,4*ny))
+            fig         = plt.figure(figsize=(30,4*ny))
 
-            plt_nr  = 0
-            ax      = plt.subplot2grid((ny,nx),(plt_nr,0),projection=ccrs.PlateCarree(),colspan=30)
+            ## Plot the map of all data points.
+            plt_nr      = 0
+            ax          = plt.subplot2grid((ny,nx),(plt_nr,0),projection=ccrs.PlateCarree(),colspan=30)
             self.plot_map_ax(ax,freq)
             
-            ax      = plt.subplot2grid((ny,nx),(plt_nr,35),colspan=65)
+            ## Plot the histogram with wave lines.
+            ax          = plt.subplot2grid((ny,nx),(plt_nr,35),colspan=65)
             self.plot_hist_ax(ax,freq)
+            ax_pos_0    = np.array(ax.get_position().bounds) # Keep track of axis position.
+
+            ## Plot the detrended wave line.
+            plt_nr     += 1
+            ax          = plt.subplot2grid((ny,nx),(plt_nr,35),colspan=65)
+            self.plot_detrend_ax(ax,freq)
+            # Adjust plot location because this one doesn't have a colorbar.
+            ax_pos_1    = np.array(ax.get_position().bounds)
+            ax_pos_1[2] = ax_pos_0[2]
+            ax.set_position(ax_pos_1)
 
             plt_nr += 1
             ax      = plt.subplot2grid((ny,nx),(plt_nr,35),colspan=65)
-            self.plot_hist_ax(ax,freq)
-
-            plt_nr += 1
-            ax      = plt.subplot2grid((ny,nx),(plt_nr,35),colspan=65)
-            self.plot_hist_ax(ax,freq)
+            self.plot_spectrogram_ax(ax,freq)
 
             fname   = '{!s}_WAVE_{:02d}MHz.png'.format(self.png_path[:-4],freq)
             fig.savefig(fname,bbox_inches='tight')
