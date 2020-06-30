@@ -206,22 +206,31 @@ class WavePlot(object):
 
         win_len_hr  = 3.
         win_len_N   = int((win_len_hr*3600.)/Ts)
+        nfft        = max([win_len_N,2**12])
 
         sliding_min = 10.
         noverlap    = int( (win_len_hr*60. - sliding_min)/(Ts/60.) )
 
-        f, t, Sxx   = signal.spectrogram(yy, fs,nperseg=win_len_N,noverlap=noverlap)
+        f, t, Sxx   = signal.spectrogram(yy, fs,nperseg=win_len_N,noverlap=noverlap,nfft=nfft)
 
         t_hr        = t/3600. - sTime_hr
 
         T           = (1./f)/60.    # Period in minutes
-        pcol        = ax.pcolormesh(t_hr, T[1:], Sxx[1:,:], shading='gouraud')
+        pcol        = ax.pcolormesh(t_hr, f, Sxx, shading='gouraud')#,norm=mpl.colors.LogNorm())
 
-#        ax.set_ylabel('Frequency [Hz]')
         ax.set_ylabel('Period [min]')
         ax.set_xlabel(xkey)
         ax.set_xlim(xlim)
-        ax.set_ylim(180,4)
+        ax.set_ylim(0,1./(10.*60.))
+
+        ytkls = []
+        for ytk in ax.get_yticks():
+            if ytk == 0:
+                ytkls.append('Inf')
+            else:
+                T = (1./ytk)/60.
+                ytkls.append('{:0.1f}'.format(T))
+        ax.set_yticklabels(ytkls)
 
         fig = ax.get_figure()
         fig.colorbar(pcol,label='Pwr Spct Dnsty')
