@@ -15,8 +15,8 @@ params      = ['spot_density']
 xkeys       = ['ut_hrs']
 #sTime       = datetime.datetime(2017,11,1)
 #eTime       = datetime.datetime(2017,12,31)
-sTime       = datetime.datetime(2017,11,3)
-eTime       = datetime.datetime(2017,11,3)
+sTime       = datetime.datetime(2017,11,2)
+eTime       = datetime.datetime(2017,11,5)
 region      = run_name
 rgc_lim     = (0.,3000)
 

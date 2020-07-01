@@ -33,20 +33,24 @@ class StepName(object):
         return self.name
 
 class WavePlot(object):
-    def __init__(self,data_da,map_da,png_path,xlim=(0,24),ylim=None,**kwargs):
+    def __init__(self,data_da,map_da,png_path,xlim=(0,24),truncate=(-4,28),ylim=None,**kwargs):
         self.data_set = xr.Dataset()
-        self.data_set['map']  = map_da
-        self.data_set['map'].attrs.update({'label':map_da.name})
-
+        # Make sure to add the histograms before the maps to ensure all needed
+        # timesteps are kept.
         self.data_set['hist'] = data_da
         self.data_set['hist'].attrs.update({'label':data_da.name})
+
+        self.calculate_waves()
+        self.data_set = self.data_set.sel({'ut_hrs':slice(*truncate)}).copy()
+
+        self.data_set['map']  = map_da
+        self.data_set['map'].attrs.update({'label':map_da.name})
 
         self.xlim       = xlim
         self.ylim       = ylim
 
         self.png_path   = png_path
 
-        self.calculate_waves()
         self.plot_summary(**kwargs)
         self.plot_waves()
 
@@ -61,11 +65,11 @@ class WavePlot(object):
             for freq in freqs:
                 data        = hist.sel(freq_MHz=freq).copy()
 
-                data_attrs  = data.attrs
-                tf          = data < 1.
-                data        = np.log10(data)
+                data_attrs      = data.attrs
+                tf              = data < 1.
+                data            = np.log10(data)
                 data.values[tf] = 0
-                data.attrs  = data_attrs
+                data.attrs      = data_attrs
                 hist.loc[{'freq_MHz':freq}] = data
 
             hist.attrs['label'] = 'log({})'.format(hist.attrs['label'])
@@ -205,15 +209,15 @@ class WavePlot(object):
         sTime_hr    = np.min(data[xkey].values)
 
         win_len_hr  = 3.
-        win_len_N   = int((win_len_hr*3600.)/Ts)
-        nfft        = max([win_len_N,2**12])
+        nperseg     = int((win_len_hr*3600.)/Ts)
+        nfft        = max([nperseg,2**12])
 
         sliding_min = 10.
         noverlap    = int( (win_len_hr*60. - sliding_min)/(Ts/60.) )
 
-        f, t, Sxx   = signal.spectrogram(yy, fs,nperseg=win_len_N,noverlap=noverlap,nfft=nfft)
+        f, t, Sxx   = signal.spectrogram(yy, fs,nperseg=nperseg,noverlap=noverlap,nfft=nfft)
 
-        t_hr        = t/3600. - sTime_hr
+        t_hr        = t/3600. + sTime_hr
 
         T           = (1./f)/60.    # Period in minutes
         pcol        = ax.pcolormesh(t_hr, f, Sxx, shading='gouraud')#,norm=mpl.colors.LogNorm())
@@ -297,22 +301,90 @@ class WavePlot(object):
             fig.savefig(fname,bbox_inches='tight')
             plt.close(fig)
 
-class ncLoader(object):
+class ncLoaderLite(object):
     def __init__(self,nc):
+        # Store NetCDF filename of interest
+        self.nc         = nc
+
+        # Keep track of NetCDF filenames to be loaded.
+        ncs             = [nc]
+
+        # Keep track of uncompressed filenames
+        self.mbz2_list  = []
+        
+        # Extract the basename that will be used to create output filenames.
+        self.basename   = os.path.basename(nc).rstrip('.nc.bz2')
+
+        # Extract the startdate of the day of interest.
+        date_str        = os.path.split(nc)[1][:8]
+        date            = datetime.datetime.strptime(date_str,'%Y%m%d')
+        self.date       = date
+
+        # Data file for the day prior
+        date_prior      = date - datetime.timedelta(days=1)
+        date_prior_str  = date_prior.strftime('%Y%m%d')
+        nc_prior        = nc.replace(date_str,date_prior_str)
+        ncs.append(nc_prior)
+
+        # Date file for the day post
+        date_post       = date + datetime.timedelta(days=1)
+        date_post_str   = date_post.strftime('%Y%m%d')
+        nc_post         = nc.replace(date_str,date_post_str)
+        ncs.append(nc_post)
+
+        # Load the data from each file.
+        data_das_list   = []
+        map_das_list    = []
+        for this_nc in ncs:
+            result  = self.load_nc(this_nc)
+            if result is None:
+                continue
+
+            data_das_list.append((result[0],this_nc))
+            if this_nc == nc:
+                map_das_list.append( (result[1],this_nc))
+            del result
+
+        # Concatenate data
+        data_das    = self.cat_data(data_das_list)
+        map_das     = self.cat_maps(map_das_list)
+
+        del data_das_list
+        del map_das_list
+
+        self.data_das   = data_das
+        self.map_das    = map_das
+
+        for mbz2 in self.mbz2_list:
+            mbz2.remove()
+
+    def load_nc(self,nc):
+        if not os.path.exists(nc):
+            return
+
+        if nc.endswith('.bz2'):
+            mbz2    = gl.MyBz2(nc)
+            mbz2.uncompress()
+            nc      = mbz2.unc_name
+            self.mbz2_list.append(mbz2)
+
         with netCDF4.Dataset(nc) as nc_fl:
             groups  = [group for group in nc_fl.groups['time_series'].groups.keys()]
 
-        das = OrderedDict()
+        # Data Arrays (Histograms)
+        data_das = OrderedDict()
         for group in groups:
-            das[group] = OrderedDict()
+            data_das[group] = OrderedDict()
             grp = '/'.join(['time_series',group])
             with xr.open_dataset(nc,group=grp) as fl:
                 ds      = fl.load()
 
             for param in ds.data_vars:
-                das[group][param] = ds[param]
-        xkeys   = groups.copy()
+                data_das[group][param] = ds[param]
+        xkeys       = groups.copy()
+        self.xkeys  = xkeys
 
+        # Map Arrays
         map_das = OrderedDict()
         for xkey in xkeys:
             grp = '/'.join(['map',xkey])
@@ -320,10 +392,79 @@ class ncLoader(object):
                 ds      = fl.load()
             map_das[xkey]   = ds[list(ds.data_vars)[0]]
 
-        self.nc         = nc
-        self.das        = das
-        self.xkeys      = xkeys
-        self.map_das    = map_das
+        return data_das, map_das
+
+    def cat_data(self,data_das_list):
+        """
+        Concatenate data from muliple files into a single timeseries.
+        """
+
+        data_das = {}
+        for inx,(das,this_nc) in enumerate(data_das_list):
+            for xkey in self.xkeys:
+                if xkey not in data_das:
+                    data_das[xkey] = {}
+
+                for param in das[xkey].keys():
+                    this_ds     = das[xkey][param].copy()
+                    dt_0        = pd.Timestamp(np.array(this_ds['ut_sTime']).tolist())
+                    time_vec    = [dt_0 + datetime.timedelta(hours=x) for x in this_ds[xkey].values]
+                    this_ds     = this_ds.assign_coords({xkey:time_vec})
+
+                    if param not in data_das[xkey]:
+                        data_das[xkey][param] = None
+                        ds  = this_ds.copy()
+                    else:
+                        ds  = data_das[xkey][param].combine_first(this_ds)
+
+                    if inx == len(data_das_list)-1:
+                        # Calculate the new time vectors in hours relative to the date of interest.
+                        time_vec    = (ds[xkey].values - np.datetime64(self.date)).astype(np.float) * 1e-9 / 3600.
+                        ds          = ds.assign_coords({xkey:time_vec})
+                        ds          = ds.assign_coords({'ut_sTime':self.date})
+
+                    # Save attributes only of the dataset of interest
+                    if this_nc == self.nc:
+                        ds.attrs = this_ds.attrs
+
+                    data_das[xkey][param] = ds
+        return data_das
+
+    def cat_maps(self,map_das_list):
+        """
+        Concatenate data from muliple files into a single timeseries.
+        """
+        map_das = {}
+        for inx,(das,this_nc) in enumerate(map_das_list):
+            for xkey in self.xkeys:
+                this_ds     = das[xkey]
+                dt_0        = pd.Timestamp(np.array(this_ds['ut_sTime']).tolist())
+                time_vec    = [dt_0 + datetime.timedelta(hours=x) for x in this_ds[xkey].values]
+                this_ds     = this_ds.assign_coords({xkey:time_vec})
+
+                if xkey not in map_das:
+                    ds  = this_ds.copy()
+                else:
+#                    ds  = map_das[xkey].combine_first(this_ds)
+                    ds  = xr.concat([map_das[xkey],this_ds],xkey) # xr.concat uses less memory than combine_first
+
+                if inx == len(map_das_list)-1:
+                    # Calculate the new time vectors in hours relative to the date of interest.
+                    time_vec    = (ds[xkey].values - np.datetime64(self.date)).astype(np.float) * 1e-9 / 3600.
+                    ds          = ds.assign_coords({xkey:time_vec})
+
+                    ds = ds.drop('ut_sTime')
+                    ds = ds.assign_coords({'ut_sTime':self.date})
+
+                # Save attributes only of the dataset of interest
+                if this_nc == self.nc:
+                    ds.attrs = this_ds.attrs
+
+                del this_ds
+                map_das[xkey] = ds
+
+        del map_das_list
+        return map_das
 
 def main(run_dct):
     srcs        = run_dct['srcs']
@@ -333,21 +474,14 @@ def main(run_dct):
     ncs.sort()
 
     for nc_bz2 in ncs:
-        mbz2    = gl.MyBz2(nc_bz2)
-        mbz2.uncompress()
-        nc      = mbz2.unc_name
-
-        ncl     = ncLoader(nc)
-        bname   = os.path.basename(nc)[:-3]
+        ncl     = ncLoaderLite(nc_bz2)
         for xkey in ncl.xkeys:
             outdir  = os.path.join(baseout_dir,xkey)
             gl.prep_output({0:outdir})
             map_da  = ncl.map_das[xkey]
 
-            for param,data_da in ncl.das[xkey].items():
-                fname   = '.'.join([bname,xkey,param,'png'])
+            for param,data_da in ncl.data_das[xkey].items():
+                fname   = '.'.join([ncl.basename,xkey,param,'png'])
                 fpath   = os.path.join(outdir,fname)
                 print(fpath)
                 wave_plot = WavePlot(data_da,map_da,png_path=fpath,**run_dct)
-
-        mbz2.remove()
