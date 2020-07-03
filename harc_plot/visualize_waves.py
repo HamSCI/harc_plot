@@ -54,7 +54,7 @@ class WavePlot(object):
         self.plot_summary(**kwargs)
         self.plot_waves()
 
-    def calculate_waves(self,log_z=True):
+    def calculate_waves(self,log_z=False):
         hist        = self.data_set['hist']
         xkey        = hist.attrs['xkey']
         ykey        = hist.attrs['ykey']
@@ -84,7 +84,13 @@ class WavePlot(object):
         da_new      = hist.sum(ykey)
 
         for freq in freqs:
-            data            = hist.sel(freq_MHz=freq).sum(ykey).values
+            yrgn    = (750,1750)
+            data_0  = hist.sel(freq_MHz=freq).sel(dist_Km=slice(*yrgn))
+            data_1  = data_0['dist_Km']*data_0
+            data    = data_1.sum(ykey).values
+            data    = pd.Series(data).rolling(8).median().values
+            data[np.logical_not(np.isfinite(data))] = 0
+#            data            = hist.sel(freq_MHz=freq).sum(ykey).values
             da_new.loc[{'freq_MHz':freq}] = data
 
         da_new.attrs = hist.attrs
