@@ -99,7 +99,7 @@ def download_omni(sDate,eDate,res='hour',output_file='omni_data.txt'):
 
 if __name__ == '__main__':
     sDate       = datetime.datetime(2000,1,1)
-    eDate       = datetime.datetime(2018,9,30)
+    eDate       = datetime.datetime(2020,6,30)
     output_file = 'omni_data.txt'
     
     download_omni(sDate,eDate,output_file=output_file)
