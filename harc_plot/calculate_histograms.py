@@ -124,6 +124,9 @@ def main(run_dct):
                     src_cnts[xkey][band_key]    = {}
 
         for band_inx, (band_key,band) in enumerate(band_obj.band_dict.items()):
+            if len(df) == 0:
+                continue
+
             frame   = df.loc[df["band"] == band.get('meters')].copy()
 
             # Create attrs diction to save with xarray DataArray
@@ -172,6 +175,10 @@ def main(run_dct):
                     map_tmp.append(result)
                 map_tmp_da      = xr.concat(map_tmp,dim=xkey)
                 map_das[xkey].append(map_tmp_da)
+
+        # Continue if no data.
+        if len(map_das[xkeys[0]]) == 0:
+            continue
 
         # Maps - Concatenate all bands into single DataArray
         for xkey in xkeys:
