@@ -608,12 +608,15 @@ def find_flares(goes_data,window_minutes=60,min_class='X1',sTime=None,eTime=None
         inx_1   = inx_0 + 1
         key_1   = flares.index[inx_1]
 
-        arg_min = np.argmin([flares['B_AVG'][key_0],flares['B_AVG'][key_1]])
+        flare_0 = np.unique(flares['B_AVG'][key_0])
+        flare_1 = np.unique(flares['B_AVG'][key_1])
+
+        arg_min = np.argmin([flare_0,flare_1])
         key_min = [key_0,key_1][arg_min]
 
         vals_between = b_avg[key_0:key_1]
 
-        if flares['B_AVG'][key_min] <= vals_between.min():
+        if np.unique(flares['B_AVG'][key_min]) <= vals_between.min():
             drop_list.append(key_min)
 
     if drop_list != []:
