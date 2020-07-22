@@ -58,6 +58,7 @@ def main(run_dct):
     base_dir            = run_dct.get('base_dir')
     output_dir          = run_dct.get('output_dir')
     reprocess           = run_dct.get('reprocess',False)
+    loc_sources         = run_dct.get('loc_sources')
 
     # Define path for saving NetCDF Files
     if output_dir is None:
@@ -93,7 +94,7 @@ def main(run_dct):
         df  = pd.DataFrame()
         for ld_inx,load_date in enumerate(load_dates):
             ld_str  = load_date.strftime("%Y-%m-%d") 
-            dft = gl.load_spots_csv(ld_str,rgc_lim=rgc_lim,
+            dft = gl.load_spots_csv(ld_str,rgc_lim=rgc_lim,loc_sources=loc_sources,
                             filter_region=filter_region,filter_region_kind=filter_region_kind)
 
             if dft is None:

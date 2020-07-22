@@ -656,10 +656,18 @@ class ncLoader(object):
                 lines   += self.src_cnts.get_text(group,data_var)
                 txt     = '\n'.join(lines)
 
-                xpos        = 0.025
-                ypos        = 0.995
-                fdict       = {'size':38,'weight':'bold'}
-                fig.text(xpos,ypos,txt,fontdict=fdict,va='top')
+                if not plot_kpsymh and not plot_goes:
+                    xpos        = 0.025
+                    ypos        = 1.005
+                    fdict       = {'size':38,'weight':'bold'}
+                    va          = 'bottom'
+                else:
+                    xpos        = 0.025
+                    ypos        = 0.995
+                    fdict       = {'size':38,'weight':'bold'}
+                    va          = 'top'
+
+                fig.text(xpos,ypos,txt,fontdict=fdict,va=va)
 
                 ######################################## 
                 fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
