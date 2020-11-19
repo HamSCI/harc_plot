@@ -67,6 +67,12 @@ tmp['lon_lim']  = (-180.,180.)
 tmp['lat_lim']  = ( -90., 90.)
 regions['World']    = tmp
 
+
+tmp     = {}
+tmp['lon_lim']  = (-55.,-10)
+tmp['lat_lim']  = (  40., 65.)
+regions['Atlantic_Ocean']   = tmp
+
 tmp     = {}
 tmp['lon_lim']  = (-130.,-60.)
 tmp['lat_lim']  = (  20., 55.)
