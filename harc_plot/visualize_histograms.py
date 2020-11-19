@@ -590,7 +590,7 @@ class ncLoader(object):
                     if log_z:
                         tf          = data < 1.
                         data        = np.log10(data)
-                        data.values[tf] = 0
+                        data        = xr.where(tf,0,data)
                         data.name   = 'log({})'.format(data.name)
 
                     if plot_sza:
