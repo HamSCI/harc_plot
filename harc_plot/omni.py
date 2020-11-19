@@ -217,9 +217,7 @@ class Omni():
 
         if len(kp) > 0:
             color       = low_color
-            markers,stems,base  = ax_1.stem(xvals,kp,use_line_collection=False)
-            for stem in stems:
-                stem.set_color(color)
+            markers,stems,base  = ax_1.stem(xvals,kp,linefmt=color)
             markers.set_color(color)
             markers.set_label('Kp Index')
             markers.set_markersize(kp_markersize)
@@ -230,9 +228,7 @@ class Omni():
                 xx      = xvals[tf]
                 yy      = kp[tf]
                 color   = mid_color
-                markers,stems,base  = ax_1.stem(xx,yy)
-                for stem in stems:
-                    stem.set_color(color)
+                markers,stems,base  = ax_1.stem(xx,yy,linefmt=color)
                 markers.set_color(color)
                 markers.set_markersize(kp_markersize)
                 lines.append(markers)
@@ -242,9 +238,7 @@ class Omni():
                 xx      = xvals[tf]
                 yy      = kp[tf]
                 color   = high_color
-                markers,stems,base  = ax_1.stem(xx,yy)
-                for stem in stems:
-                    stem.set_color(color)
+                markers,stems,base  = ax_1.stem(xx,yy,linefmt=color)
                 markers.set_color(color)
                 markers.set_markersize(kp_markersize)
                 lines.append(markers)
