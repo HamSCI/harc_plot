@@ -428,7 +428,7 @@ class ncLoader(object):
     def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',
             plot_sza=True,subdir=None,geospace_env=None,plot_region=None,
             plot_kpsymh=True,plot_goes=True,axvlines=None,axvlines_kw={},axvspans=None,time_format={},
-            xkeys=None,**kwargs):
+            xkeys=None,log_z=None,**kwargs):
         if self.datasets is None:
             return
 
@@ -479,7 +479,9 @@ class ncLoader(object):
 
                 stat        = data_da.attrs.get('stat')
                 pdct        = pdict.get(stat,{})
-                log_z       = pdct.get('log_z',True)
+                
+                if log_z is None:
+                    log_z       = pdct.get('log_z',True)
 
                 freqs       = np.sort(data_da['freq_MHz'])[::-1]
 
