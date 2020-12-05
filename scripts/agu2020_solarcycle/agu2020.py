@@ -53,24 +53,20 @@ def load_nc_cache(rd,reset_cache=False):
 
     return nc_obj
 
-years = [2016, 2017, 2018, 2019]
 
-for year in years:
-    #run_name    = 'Europe'
-    run_name    = 'World'
-    data_dir    = os.path.join('data/solarcycle_3hr_250km/histograms',run_name)
-    plot_dir    = os.path.join('output/galleries/solarcycle_3hr_250km',run_name)
-    #params      = ['spot_density']
-    #xkeys       = ['ut_hrs','slt_mid']
+def main(data_source_name):
+    region          = 'World'
+    run_name        = '-'.join([region,data_source_name])
+    data_dir        = os.path.join('data/solarcycle_3hr_250km/histograms',run_name)
+    plot_dir        = os.path.join('output/galleries/solarcycle_3hr_250km',run_name)
+
     xkeys       = ['slt_mid','ut_hrs']
-    sTime       = datetime.datetime(year,1,1)
-    eTime       = datetime.datetime(year,12,31)
-    #eTime       = datetime.datetime(2020,1,1)
+#    sTime       = datetime.datetime(2009,1,1)
+#    eTime       = datetime.datetime(2020,1,1)
 
-    #sTime       = datetime.datetime(2009,1,1)
-    #eTime       = datetime.datetime(2009,1,31)
+    sTime       = datetime.datetime(2015,1,1)
+    eTime       = datetime.datetime(2015,2,1)
 
-    region      = run_name
     rgc_lim     = (0, 10000)
 
     #geo_env     = harc_plot.GeospaceEnv()
@@ -93,12 +89,22 @@ for year in years:
     rd['band_keys']             = [28, 21, 14, 7, 3, 1]
     rd['xkeys']                 = xkeys
 
-    nc    = load_nc_cache(rd,reset_cache=False)
+    nc    = load_nc_cache(rd,reset_cache=True)
     fpaths = nc.plot(**rd)
 
     print()
-    for fpath in fpaths:
-        print('http://arrow.lan/~w2naf/code/harc_plot/scripts/agu2020_solarcycle/'+fpath)
+    if fpaths is not None:
+        for fpath in fpaths:
+            print('http://arrow.lan/~w2naf/code/harc_plot/scripts/agu2020_solarcycle/'+fpath)
     print()
+
+if __name__ == '__main__':
+    dsns = data_src_names = []
+    dsns.append('WSPRNet')
+    dsns.append('RBN')
+    dsns.append('WSPRNet_RBN')
+
+    for dsn in data_src_names:
+        main(dsn)
 
 import ipdb; ipdb.set_trace()
