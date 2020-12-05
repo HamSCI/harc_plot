@@ -44,6 +44,18 @@ def calc_histogram(frame,attrs):
     return da 
 
 def main(run_dct):
+    """
+    data_sources: list, i.e. [1,2]
+        0: dxcluster
+        1: WSPRNet
+        2: RBN
+
+    loc_sources: list, i.e. ['P','Q']
+        P: user Provided
+        Q: QRZ.com or HAMCALL
+        E: Estimated using prefix
+    """
+
     # Get Variables from run_dct
     sDate               = run_dct['sDate']
     eDate               = run_dct['eDate']
@@ -59,6 +71,7 @@ def main(run_dct):
     output_dir          = run_dct.get('output_dir')
     reprocess           = run_dct.get('reprocess',False)
     loc_sources         = run_dct.get('loc_sources')
+    data_sources        = run_dct.get('data_sources',[1,2])
 
     # Define path for saving NetCDF Files
     if output_dir is None:
@@ -94,7 +107,8 @@ def main(run_dct):
         df  = pd.DataFrame()
         for ld_inx,load_date in enumerate(load_dates):
             ld_str  = load_date.strftime("%Y-%m-%d") 
-            dft = gl.load_spots_csv(ld_str,rgc_lim=rgc_lim,loc_sources=loc_sources,
+            dft = gl.load_spots_csv(ld_str,data_sources=data_sources,
+                            rgc_lim=rgc_lim,loc_sources=loc_sources,
                             filter_region=filter_region,filter_region_kind=filter_region_kind)
 
             if dft is None:
