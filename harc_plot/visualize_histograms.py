@@ -100,13 +100,30 @@ class SrcCounts(object):
         for group,ds_list in xdct.items():
             if group not in src_cnts:
                 src_cnts[group] = {}
-            for ds in ds_list:
+            for ds_inx,ds in enumerate(ds_list):
                 for data_var in ds.data_vars:
+
+                    ds_uts  = ds['ut_sTime'].values[0]
+                    ds_t0   = ds_uts + pd.Timedelta(ds[group].values[0],'h')
+
+
+                    print('Counting: {:05d}: {!s}'.format(ds_inx,ds_t0))
+
                     src_cnt = pd.read_json(ds[data_var].attrs.get('src_cnt'))
+
+                    # Replace NaNs with 0s for the count.
+                    # This should eventually be fixed in the raw
+                    # histogram computing code so that NaNs don't appear
+                    # here to begin with.
+                    src_cnt = src_cnt.fillna(0)
+
                     if data_var not in src_cnts[group]:
                         src_cnts[group][data_var] = src_cnt
                     else:
-                        src_cnts[group][data_var] += src_cnt
+                        # We need to use the .add() method with fill_value=0 or pandas will
+                        # put in NaNs if there is a day that is missing one of the already
+                        # listed sources (like WSPRNet or RBN)
+                        src_cnts[group][data_var] = src_cnts[group][data_var].add(src_cnt,fill_value=0)
 
         # Compute percentages.
         for group,ds_list in xdct.items():
@@ -440,6 +457,7 @@ class ncLoader(object):
         if axvlines_kw is None:
             axvlines_kw = {}
 
+        fpaths = [] # Keep track of paths of all plotted figures.
         for group,ds in self.datasets['time_series'].items():
 
             #Only plot specified xkeys (i.e. ut_hrs and not slt_mid)
@@ -685,6 +703,9 @@ class ncLoader(object):
                 fig.savefig(fpath,bbox_inches='tight')
                 print('--> {!s}'.format(fpath))
                 plt.close(fig)
+                fpaths.append(fpath)
+
+        return fpaths
 
 def plot_dailies(run_dct):
     sTime   = run_dct['sTime']
