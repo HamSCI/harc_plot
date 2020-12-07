@@ -444,7 +444,7 @@ class ncLoader(object):
 
     def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',
             plot_sza=True,subdir=None,geospace_env=None,plot_region=None,
-            plot_kpsymh=True,plot_goes=True,axvlines=None,axvlines_kw={},axvspans=None,time_format={},
+            plot_kpsymh=True,plot_goes=True,plot_f107=False,axvlines=None,axvlines_kw={},axvspans=None,time_format={},
             xkeys=None,log_z=None,**kwargs):
         if self.datasets is None:
             return
@@ -511,6 +511,9 @@ class ncLoader(object):
                 if plot_goes:
                     ny += 1
 
+                if plot_f107:
+                    ny += 1
+
                 fig         = plt.figure(figsize=(33,4*ny))
 #                fig         = plt.figure(figsize=(50,4*ny))
                 col_0       = 0
@@ -552,6 +555,20 @@ class ncLoader(object):
                     pinx    +=1 
                     ax      = plt.subplot2grid((ny,nx),(pinx,col_1),colspan=col_1_span)
                     goeser.plot(ax)
+                    ax.set_xlim(xlim)
+                    plot_axv(axvlines,ax,color='k')
+                    plot_axvspans(axvspans,ax)
+                    ax.tick_params(**tick_params)
+                    plot_letter(pinx,ax)
+                    axs_to_adjust.append(ax)
+                    self._format_timeticklabels(ax)
+                    ax.set_xlabel('')
+
+                ######################################## 
+                if plot_f107:
+                    pinx    +=1 
+                    ax      = plt.subplot2grid((ny,nx),(pinx,col_1),colspan=col_1_span)
+                    geospace_env.omni.plot_f107(self.sTime,self.eTime,ax,xlabels=True)
                     ax.set_xlim(xlim)
                     plot_axv(axvlines,ax,color='k')
                     plot_axvspans(axvspans,ax)
