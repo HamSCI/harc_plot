@@ -25,9 +25,8 @@ def main(data_source_name):
     plot_dir        = os.path.join('output/galleries/solarcycle_3hr_250km',run_name)
     params          = ['spot_density']
     xkeys           = ['ut_hrs','slt_mid']
-    #sTime          = datetime.datetime(2018,1,1)
-    sTime           = datetime.datetime(2015,1,1)
-    eTime           = datetime.datetime(2015,2,1)
+    sTime           = datetime.datetime(2009,1,1)
+    eTime           = datetime.datetime(2013,1,1)
     rgc_lim         = (0, 10000)
 
     #geo_env     = harc_plot.GeospaceEnv()

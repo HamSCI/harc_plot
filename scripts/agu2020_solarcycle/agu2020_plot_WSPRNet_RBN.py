@@ -54,18 +54,19 @@ def load_nc_cache(rd,reset_cache=False):
     return nc_obj
 
 
-def main(data_source_name):
+def main(data_source_name='WSPRNet_RBN'):
     region          = 'World'
     run_name        = '-'.join([region,data_source_name])
+#    run_name        = region
     data_dir        = os.path.join('data/solarcycle_3hr_250km/histograms',run_name)
     plot_dir        = os.path.join('output/galleries/solarcycle_3hr_250km',run_name)
 
     xkeys       = ['slt_mid','ut_hrs']
-#    sTime       = datetime.datetime(2009,1,1)
-#    eTime       = datetime.datetime(2020,1,1)
+    sTime       = datetime.datetime(2009,1,1)
+    eTime       = datetime.datetime(2020,1,1)
 
-    sTime       = datetime.datetime(2015,1,1)
-    eTime       = datetime.datetime(2015,2,1)
+#    sTime       = datetime.datetime(2015,1,1)
+#    eTime       = datetime.datetime(2015,2,1)
 
     rgc_lim     = (0, 10000)
 
@@ -85,12 +86,13 @@ def main(data_source_name):
     rd['plot_trend']            = True 
     rd['plot_kpsymh']           = False
     rd['plot_goes']             = False
+    rd['plot_f107']             = True
     rd['log_z']                 = False
     rd['band_keys']             = [28, 21, 14, 7, 3, 1]
     rd['xkeys']                 = xkeys
 
-    nc    = load_nc_cache(rd,reset_cache=True)
-    fpaths = nc.plot(**rd)
+    nc      = load_nc_cache(rd,reset_cache=True)
+    fpaths  = nc.plot(**rd)
 
     print()
     if fpaths is not None:
@@ -99,12 +101,14 @@ def main(data_source_name):
     print()
 
 if __name__ == '__main__':
-    dsns = data_src_names = []
-    dsns.append('WSPRNet')
-    dsns.append('RBN')
-    dsns.append('WSPRNet_RBN')
+#    dsns = data_src_names = []
+#    dsns.append('WSPRNet')
+#    dsns.append('RBN')
+#    dsns.append('WSPRNet_RBN')
+#    for dsn in data_src_names:
+#        main(dsn)
 
-    for dsn in data_src_names:
-        main(dsn)
+    main('WSPRNet_RBN')
+
 
 import ipdb; ipdb.set_trace()
