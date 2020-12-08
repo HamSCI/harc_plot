@@ -181,8 +181,8 @@ def main(run_dct):
                 map_attrs['dy']             = 1
 
                 map_tmp = []
-                for tb_inx,tb_0 in enumerate(time_bins[:-1]):
-                    tb_1                = time_bins[tb_inx+1]
+                for tb_inx,tb_0 in enumerate(time_bins):
+                    tb_1                = time_bins[tb_inx] + xb_size_min/60.
                     tf                  = np.logical_and(frame[xkey] >= tb_0, frame[xkey] < tb_1)
                     tb_frame            = frame[tf].copy()
                     result              = calc_histogram(tb_frame,map_attrs)
