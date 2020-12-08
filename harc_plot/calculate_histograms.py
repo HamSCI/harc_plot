@@ -21,7 +21,7 @@ def calc_histogram(frame,attrs):
     ylim    = attrs['ylim']
     dy      = attrs['dy']
 
-    xbins   = gl.get_bins(xlim,dx)
+    xbins   = gl.get_bins(xlim,dx)[:-1]
     ybins   = gl.get_bins(ylim,dy)
 
     if len(frame) > 2:
