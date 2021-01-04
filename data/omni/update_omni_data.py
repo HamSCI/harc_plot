@@ -93,13 +93,24 @@ def download_omni(sDate,eDate,res='hour',output_file='omni_data.txt'):
 
     codes   = ['vars={!s}'.format(x) for x in vrs.keys()]
     var_str = '&'.join(codes)
-    cmd     = 'wget --post-data "activity=retrieve&res={!s}&spacecraft={!s}&start_date={!s}&end_date={!s}&{!s}&scale=Linear&ymin=&ymax=&view=0&charsize=&xstyle=0&ystyle=0&symbol=0&symsize=&linestyle=solid&table=0&imagex=640&imagey=480&color=&back=" https://omniweb.sci.gsfc.nasa.gov/cgi/nx1.cgi -O {!s}'.format(
+    cmd     = 'wget --post-data "activity=retrieve&res={!s}&spacecraft={!s}&start_date={!s}&end_date={!s}&{!s}&scale=Linear&ymin=&ymax=&view=0&charsize=&xstyle=0&ystyle=0&symbol=0&symsize=&linestyle=solid&table=0&imagex=640&imagey=480&color=&back=" https://omniweb.gsfc.nasa.gov/cgi/nx1.cgi -O {!s}'.format(
                     res,spacecraft,sDate_str,eDate_str,var_str,output_file)
     os.system(cmd)
 
+    bz2f = output_file+'.bz2'
+    if os.path.exists(bz2f):
+        os.remove(bz2f)
+
+    cmd = 'bzip2 {!s}'.format(output_file)
+    os.system(cmd)
+
+    print('')
+    print('OMNIWeb Update Routine Complete. Please verify output file is correct.')
+    print('Output File: {!s}.bz2'.format(output_file))
+
 if __name__ == '__main__':
     sDate       = datetime.datetime(2000,1,1)
-    eDate       = datetime.datetime(2020,6,30)
-    output_file = 'omni_data.txt'
+    eDate       = datetime.datetime.now() - datetime.timedelta(days=30)
+    output_file = 'omni_data_reduced.txt'
     
     download_omni(sDate,eDate,output_file=output_file)

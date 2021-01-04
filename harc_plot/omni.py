@@ -76,7 +76,7 @@ class Omni():
         vrs['R (Sunspot No.)']                  = {'symbol':'R'}
         vrs['Dst-index, nT']                    = {'symbol':'Dst_nT'}
         vrs['ap_index, nT']                     = {'symbol':'Ap_nT'}
-        vrs['f10.7_index']                      = {'symbol':'F10.7'}
+        vrs['f10.7_index']                      = {'symbol':'F10.7',                    'NaN':999.9}
         vrs['AE-index, nT']                     = {'symbol':'AE',                       'NaN':9999}
         vrs['AL-index, nT']                     = {'symbol':'AL',                       'NaN':99999}
         vrs['AU-index, nT']                     = {'symbol':'AU',                       'NaN':99999}
@@ -260,6 +260,37 @@ class Omni():
                 xtl.set_visible(False)
         plt.sca(ax)
         return [ax,ax_1]
+
+    def plot_f107(self,sTime,eTime,ax,xkey='index',xlabels=True):
+        """
+        Plot F10.7
+        """
+        tf  = np.logical_and(self.df.index >= sTime, self.df.index < eTime)
+        df  = self.df[tf].copy()
+
+        ut_hrs  = df.index.map(to_ut_hr)
+
+        lines       =[]
+
+        if xkey == 'index':
+            xx      = df.index
+            xlim    = (sTime,eTime)
+        else:
+            xx      = ut_hrs
+            xlim    = (to_ut_hr(sTime), (eTime-sTime).total_seconds()/3600.)
+
+        yy          = df['F10.7'].tolist()
+        ylabel      = 'F10.7 SFI'
+        tmp,        = ax.plot(xx,yy,label=ylabel,color='k',lw=1)
+        lines.append(tmp)
+        ax.set_ylabel(ylabel)
+        ax.set_xlim(xlim)
+
+        if not xlabels:
+            for xtl in ax.get_xticklabels():
+                xtl.set_visible(False)
+        plt.sca(ax)
+        return
 
     def get_closest(self,dt):
         df  = self.df
