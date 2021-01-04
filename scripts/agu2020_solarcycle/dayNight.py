@@ -59,25 +59,26 @@ def load_nc_cache(rd,reprocess=False):
     return nc_obj
 
 
-def main(data_source='WSPRNet_RBN',diurnal='day'):
+def main(data_source='WSPRNet_RBN',diurnal='day',test_mode=False):
 
     region          = 'World'
-    run_name        = '-'.join([region,data_source])
+    rgc_lim         = (0, 10000)
+    xkeys           = ['slt_mid']
+
+    if test_mode:
+        sTime       = datetime.datetime(2015,1,1)
+        eTime       = datetime.datetime(2015,2,1)
+        run_name    = '-'.join([region,data_source,'test'])
+    else:
+        sTime       = datetime.datetime(2009,1,1)
+        eTime       = datetime.datetime(2020,1,1)
+        run_name    = '-'.join([region,data_source])
+
     data_dir        = os.path.join('data/solarcycle_3hr_250km/histograms',run_name)
     plot_dir        = os.path.join('output/galleries/solarcycle_3hr_250km',run_name)
 
-#    xkeys       = ['slt_mid','ut_hrs']
-    xkeys       = ['slt_mid']
-    sTime       = datetime.datetime(2009,1,1)
-    eTime       = datetime.datetime(2020,1,1)
-
-#    sTime       = datetime.datetime(2015,1,1)
-#    eTime       = datetime.datetime(2015,2,1)
-
-    rgc_lim     = (0, 10000)
-
-    #geo_env     = harc_plot.GeospaceEnv()
-    geo_env = None
+    #geo_env        = harc_plot.GeospaceEnv()
+    geo_env         = None
 
     # Visualization ################################################################
     ### Visualize Observations
@@ -93,11 +94,12 @@ def main(data_source='WSPRNet_RBN',diurnal='day'):
     rd['plot_kpsymh']           = False
     rd['plot_goes']             = False
     rd['plot_f107']             = True
-    rd['log_z']                 = False
+    rd['log_z']                 = True
     rd['band_keys']             = [28, 21, 14, 7, 3, 1]
     rd['xkeys']                 = xkeys
 
-    nc      = load_nc_cache(rd,reprocess=False)
+#    nc      = load_nc_cache(rd,reprocess=True)
+    nc      = vh.ncLoader(**rd)
 
     # Select Day / Night ###########################################################
     rd['no_percentages'] = True
@@ -106,11 +108,18 @@ def main(data_source='WSPRNet_RBN',diurnal='day'):
         attrs       = ds['spot_density'].attrs
         slt_mids    = ds['slt_mid'] % 24                                # Modulo 24 so we see what hour of the day it actually is
 
+        dx          = float(attrs.get('dx'))
+
+        stride      = 12. / dx
+        assert (stride - np.floor(stride)) == 0, \
+                'Stride must be an integer value. Recalculate histograms so 12./dx is an integer.'
+        stride      = int(stride)
+
         if diurnal == 'night':
             tf      = np.logical_or(slt_mids >=18, slt_mids < 6)            # Find where it is night only.
-            ds      = ds.loc[{'slt_mid': ds['slt_mid'][tf]}].copy() # Select the night times in the data array.
+            ds      = ds.loc[{'slt_mid': ds['slt_mid'][tf]}].copy()         # Select the night times in the data array.
 
-            ds      = ds.rolling({'slt_mid':4}).sum()                   # Rolling sum of every 4 points.
+            ds      = ds.rolling({'slt_mid':stride}).sum()                   # Rolling sum of every 4 points.
 
             tf      = (ds['slt_mid']%24) == 18                          # Only keep those data points starting at LT == 18 hr.
             ds      = ds.loc[{'slt_mid': ds['slt_mid'][tf]}].copy()
@@ -121,7 +130,7 @@ def main(data_source='WSPRNet_RBN',diurnal='day'):
             tf      = np.logical_and(slt_mids >=6, slt_mids < 18)            # Find where it is day only.
             ds      = ds.loc[{'slt_mid': ds['slt_mid'][tf]}].copy()  # Select the night times in the data array.
 
-            ds      = ds.rolling({'slt_mid':4}).sum()                    # Rolling sum of every 4 points.
+            ds      = ds.rolling({'slt_mid':stride}).sum()                    # Rolling sum of every 4 points.
 
             tf      = (ds['slt_mid']%24) == 6                            # Only keep those data points starting at LT == 6 hr.
             ds      = ds.loc[{'slt_mid': ds['slt_mid'][tf]}].copy()
@@ -130,7 +139,6 @@ def main(data_source='WSPRNet_RBN',diurnal='day'):
 
         ds['spot_density'].attrs = attrs 
         nc.datasets[prefix]['slt_mid'] = ds                          # Put the data array back into the plotting object.
-
 
     fpaths  = nc.plot(**rd)
 
@@ -146,11 +154,20 @@ if __name__ == '__main__':
     parser.add_argument('--diurnals', default=['day','night',None])
     args = parser.parse_args()
 
-    diurnals = args.diurnals
+    diurnals    = args.diurnals
+    data_source = args.data_source
+    test_mode   = False
+
+#    diurnals    = ['night']
+#    data_source = 'WSPRNet'
+#    test_mode   = True
+
+#    diurnals    = [None]
 
     for diurnal in diurnals:
         rd = {}
         rd['diurnal']           = diurnal
-        rd['data_source']       = args.data_source
+        rd['data_source']       = data_source
+        rd['test_mode']         = test_mode
         print(rd)
         main(**rd)

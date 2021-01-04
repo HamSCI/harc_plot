@@ -59,7 +59,7 @@ def main(start='2015-01-01',stop='2015-02-01',
     rd['yb_size_km']            = 250.
     rd['loc_sources']           = None
     rd['data_sources']          = dsd[data_source]['data_sources']
-    rd['reprocess']             = True
+    rd['reprocess']             = False
     rd['output_dir']            = data_dir
     rd['band_obj']              = harc_plot.gl.BandData()
     harc_plot.calculate_histograms.main(rd)
@@ -71,11 +71,12 @@ if __name__ == '__main__':
     parser.add_argument('--stop', default='2015-02-01')
     args = parser.parse_args()
 
-    for data_source in args.data_sources:
+    data_sources = ['WSPRNet_RBN']
+
+    for data_source in data_sources:
         rd  = {}
         rd['data_source']   = data_source
         rd['start']         = args.start
         rd['stop']          = args.stop
-        rd['test_mode']     = True
         print(rd)
         main(**rd)
