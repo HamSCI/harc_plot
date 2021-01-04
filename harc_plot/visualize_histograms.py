@@ -153,6 +153,21 @@ class SrcCounts(object):
 
         return lines
 
+    def get_text_sources_only(self,group,data_var):
+        
+        sc      = self.src_cnts[group][data_var]
+        srcs    = list(sc.index)
+        srcs.remove('sum')
+        srcs.sort()
+
+        lines   = []
+        lines.append('Data Sources:')
+        for src in srcs:
+            line    = '   {!s}'.format(src)
+            lines.append(line)
+
+        return lines
+
 def center_of_mass(da,c0,c1):
     """
     Calculate the center of mass of a 2D xarray.
@@ -426,10 +441,11 @@ class ncLoader(object):
         if label is not None:
             ax.set_xlabel(label)
 
-    def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',
-            plot_sza=True,subdir=None,geospace_env=None,plot_region=None,
+    def plot(self,baseout_dir='output',fname_suffix=None,xlim=None,ylim=None,xunits='datetime',title=None,
+            plot_sza=True,subdir=None,geospace_env=None,plot_region=None,no_percentages=False,
             plot_kpsymh=True,plot_goes=True,plot_f107=False,axvlines=None,axvlines_kw={},axvspans=None,time_format={},
             xkeys=None,log_z=None,**kwargs):
+
         if self.datasets is None:
             return
 
@@ -538,6 +554,7 @@ class ncLoader(object):
 #                col_1_span  = 65
 
                 axs_to_adjust   = []
+                axs_stackplot   = []
 
                 pinx = -1
                 if plot_kpsymh:
@@ -558,6 +575,7 @@ class ncLoader(object):
                         self._format_timeticklabels(ax)
                         ax.set_xlabel('')
                     axs_to_adjust   += omni_axs
+                    axs_stackplot   += omni_axs
 
                 ######################################## 
                 if plot_goes:
@@ -571,6 +589,7 @@ class ncLoader(object):
                     ax.tick_params(**tick_params)
                     plot_letter(pinx,ax)
                     axs_to_adjust.append(ax)
+                    axs_stackplot.append(ax)
                     self._format_timeticklabels(ax)
                     ax.set_xlabel('')
 
@@ -585,6 +604,7 @@ class ncLoader(object):
                     ax.tick_params(**tick_params)
                     plot_letter(pinx,ax)
                     axs_to_adjust.append(ax)
+                    axs_stackplot.append(ax)
                     self._format_timeticklabels(ax)
                     ax.set_xlabel('')
                 
@@ -647,8 +667,8 @@ class ncLoader(object):
 
                     robust_dict = self.kwargs.get('robust_dict',{})
                     robust      = robust_dict.get(freq,True)
-#                    result      = data.plot.contourf(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,levels=30,robust=robust,cbar_kwargs=cbar_kwargs)
-                    result      = data.plot.pcolormesh(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,robust=robust,cbar_kwargs=cbar_kwargs)
+                    result      = data.plot.contourf(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,levels=30,robust=robust,cbar_kwargs=cbar_kwargs)
+#                    result      = data.plot.pcolormesh(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,robust=robust,cbar_kwargs=cbar_kwargs)
 
                     if plot_sza:
                         sza.plot(group,ax)
@@ -683,6 +703,7 @@ class ncLoader(object):
                     self._format_timeticklabels(ax)
                     if inx != len(freqs)-1:
                         ax.set_xlabel('')
+                    axs_stackplot.append(ax)
 
                     hist_ax = ax
 
@@ -699,18 +720,21 @@ class ncLoader(object):
                     l('{!s}-\n{!s}'.format(date_str_0,date_str_1))
 
                 l('Ham Radio Networks')
-                l('N Spots = {!s}'.format(map_sum))
-                lines   += self.src_cnts.get_text(group,data_var)
+                l('N Spots = {:d}'.format(int(map_sum)))
+                if no_percentages:
+                    lines   += self.src_cnts.get_text_sources_only(group,data_var)
+                else:
+                    lines   += self.src_cnts.get_text(group,data_var)
                 txt     = '\n'.join(lines)
 
-                if not plot_kpsymh and not plot_goes:
+                if not plot_kpsymh and not plot_goes and not plot_f107:
                     xpos        = 0.025
                     ypos        = 1.005
                     fdict       = {'size':38,'weight':'bold'}
                     va          = 'bottom'
                 else:
                     xpos        = 0.025
-                    ypos        = 0.995
+                    ypos        = 1.005
                     fdict       = {'size':38,'weight':'bold'}
                     va          = 'top'
 
@@ -721,11 +745,25 @@ class ncLoader(object):
                 for ax_0 in axs_to_adjust:
                     gl.adjust_axes(ax_0,hist_ax)
 
+
+                if title is not None:
+                    xpos        = 0.500
+                    ypos        = 1.005
+                    fdict       = {'size':48,'weight':'bold'}
+                    va          = 'bottom'
+                    ha          = 'center'
+
+                    fig.text(xpos,ypos,title,fontdict=fdict,va=va,ha=ha)
+
                 sTime_str   = self.sTime.strftime('%Y%m%d.%H%MUT')
                 eTime_str   = self.eTime.strftime('%Y%m%d.%H%MUT')
                 date_str    = '-'.join([sTime_str,eTime_str])
 
-                fname   = '.'.join([date_str,self.basename,group,data_var,'png']).replace('.bz2','')
+                if fname_suffix is None:
+                    fname   = '.'.join([date_str,self.basename,group,data_var,'png']).replace('.bz2','')
+                else:
+                    fname   = '.'.join([date_str,self.basename,group,data_var,fname_suffix,'png']).replace('.bz2','')
+
                 fpath   = os.path.join(outdir,fname)
                 fig.savefig(fpath,bbox_inches='tight')
                 print('--> {!s}'.format(fpath))

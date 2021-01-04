@@ -93,7 +93,7 @@ def main(run_dct):
     if strip_time(sDate) != strip_time(eDate):
         dates   = dates[:-1]
 
-    for dt in tqdm.tqdm(dates):
+    for dt in tqdm.tqdm(dates,dynamic_ncols=True):
         nc_name = dt.strftime('%Y%m%d') + '.data.nc'
         nc_path = os.path.join(ncs_path,nc_name)
 
@@ -112,7 +112,7 @@ def main(run_dct):
                             filter_region=filter_region,filter_region_kind=filter_region_kind)
 
             if dft is None:
-                print('No data for {!s}'.format(ld_str))
+                tqdm.tqdm.write('No data for {!s}'.format(ld_str))
                 continue
             for xkey in xkeys:
                 dft[xkey]    = ld_inx*24 + dft[xkey]
