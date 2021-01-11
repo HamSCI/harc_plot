@@ -13,8 +13,11 @@ data_dir    = os.path.join('data/wave_search_2017NOV03',run_name)
 plot_dir    = os.path.join('output/galleries/wave_search_2017NOV03',run_name)
 params      = ['spot_density']
 xkeys       = ['ut_hrs']
-sTime       = datetime.datetime(2017,11,2)
-eTime       = datetime.datetime(2017,11,5)
+#sTime       = datetime.datetime(2017,11,2)
+#eTime       = datetime.datetime(2017,11,5)
+
+sTime       = datetime.datetime(2017,11,3)
+eTime       = datetime.datetime(2017,11,4)
 
 #sTime       = datetime.datetime(2016,1,1)
 #eTime       = datetime.datetime(2018,1,1)
