@@ -240,6 +240,7 @@ class KeoHam(object):
         self.run_dct             = rd
 
         self.load_data()
+        self.plot_timeseries()
         self.plot_stackplot_and_keogram()
     
     def load_data(self):
@@ -303,6 +304,75 @@ class KeoHam(object):
         df      = df[tf].copy()
 
         self.df = df
+
+    def plot_timeseries(self):
+        rd                  = self.run_dct
+        output_dir          = rd['output_dir']
+        sDate               = rd['sDate']
+        eDate               = rd['eDate']
+        band                = rd['band']
+        band_MHz            = rd['band_MHz']
+        xb_size_min         = rd['xb_size_min']
+        yb_size_km          = rd['yb_size_km']
+        xlim                = rd['xlim']
+        rgc_lim             = rd['rgc_lim']
+        xkey                = rd['xkey']
+
+        df                  = self.df
+
+        sDate_str   = sDate.strftime('%Y%m%d.%H%M')
+        eDate_str   = eDate.strftime('%Y%m%d.%H%M')
+        date_str    = '{!s}-{!s}'.format(sDate_str,eDate_str)
+        fname       = '{!s}_timeseries.png'.format(date_str)
+
+        fig     = plt.figure(figsize=(20,8))
+        ax      = fig.add_subplot(111)
+
+        attrs                       = {}
+        attrs['band_MHz']           = band_MHz
+        attrs['band_name']          = band_obj.band_dict[band_MHz]['name']
+        attrs['band_freq_name']     = band_obj.band_dict[band_MHz]['freq_name']
+        attrs['sTime']              = sDate
+        attrs['xkey']               = xkey
+        attrs['dx']                 = xb_size_min/60.
+        attrs['xlim']               = (0,24)
+        attrs['ykey']               = 'dist_Km'
+        attrs['ylim']               = rgc_lim
+        attrs['dy']                 = yb_size_km
+        data                        = calc_histogram(df,attrs)
+        data.name                   = 'Counts'
+
+        log_z = False
+        if log_z:
+            tf          = data < 1.
+            data        = np.log10(data)
+            data        = xr.where(tf,0,data)
+            data.name   = 'log({})'.format(data.name)
+
+        # Plot the Pcolormesh
+#            result      = data.plot.contourf(x=xkey,y='dist_Km',ax=ax,levels=30,vmin=0)
+        result      = data.plot.pcolormesh(x=xkey,y='dist_Km',ax=ax,vmin=0,cbar_kwargs={'pad':0.08})
+
+        # Calculate Derived Line
+        sum_cnts    = data.sum('dist_Km').data
+        avg_dist    = (data.dist_Km.data @ data.data.T) / sum_cnts
+
+        ax2     = ax.twinx()
+        ax2.plot(data.ut_hrs,avg_dist,lw=2,color='w')
+        ax2.set_ylim(0,3000)
+        ax2.set_ylabel('Avg Dist\n[km]')
+
+        ax.set_xlabel('')
+        ax.set_title('')
+
+        ax.set_xlim(xlim)
+
+        fig.tight_layout()
+        fig.text(0.5,1.0,fname,fontdict={'weight':'bold','size':24},ha='center')
+
+        fpath       = os.path.join(output_dir,fname)
+        fig.savefig(fpath,bbox_inches='tight')
+        plt.close(fig)
 
     def plot_stackplot_and_keogram(self):
         rd                  = self.run_dct
@@ -483,11 +553,11 @@ if __name__ == '__main__':
     rd['keo_grid']              = keo_grid
 
     rd['band_MHz']              = 14
-#    rd['xb_size_min']           = 2.
-#    rd['yb_size_km']            = 25.
+    rd['xb_size_min']           = 2.
+    rd['yb_size_km']            = 25.
 
-    rd['xb_size_min']           = 5
-    rd['yb_size_km']            = 75.
+#    rd['xb_size_min']           = 5
+#    rd['yb_size_km']            = 75.
 
     keo_ham = KeoHam(rd)
     import ipdb; ipdb.set_trace()
