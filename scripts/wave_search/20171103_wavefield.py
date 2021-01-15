@@ -223,7 +223,6 @@ class KeoHam(object):
         rd  = run_dct
 #        rd['sDate']              = rd['sDate']
 #        rd['eDate']              = rd['eDate']
-#        rd['xkeys']              = rd['xkeys']
 #        rd['rgc_lim']            = rd['rgc_lim']
 #        rd['filter_region']      = rd['filter_region']
 #        rd['filter_region_kind'] = rd['filter_region_kind']
@@ -232,6 +231,7 @@ class KeoHam(object):
 #        rd['band_MHz']           = rd['band_MHz']
 #        rd['keo_grid']           = rd['keo_grid']
 
+        rd['xkey']               = rd.get('xkey','ut_hrs')
         rd['xlim']               = rd.get('xlim',(12,24))
         rd['output_dir']         = rd.get('output_dir')
         rd['data_sources']       = rd.get('data_sources',[1,2])
@@ -256,7 +256,7 @@ class KeoHam(object):
         rgc_lim             = rd['rgc_lim']
         filter_region       = rd['filter_region']
         filter_region_kind  = rd['filter_region_kind']
-        xkeys               = rd['xkeys']
+        xkey                = rd['xkey']
         band                = rd['band']
 
         # Define path for saving NetCDF Files
@@ -288,8 +288,7 @@ class KeoHam(object):
 
                 dft.to_hdf(h5_path,h5_key,complib='bzip2',complevel=9)
 
-            for xkey in xkeys:
-                dft[xkey]    = dt_inx*24 + dft[xkey]
+            dft[xkey]    = dt_inx*24 + dft[xkey]
 
             df  = df.append(dft,ignore_index=True)
 
@@ -317,10 +316,10 @@ class KeoHam(object):
         yb_size_km          = rd['yb_size_km']
         xlim                = rd['xlim']
         rgc_lim             = rd['rgc_lim']
+        xkey                = rd['xkey']
 
         df                  = self.df
 
-        xkey                = 'ut_hrs'
 
         # Set up stackplot. ####################
         lkeys   = ['lat', 'lon']
@@ -364,7 +363,7 @@ class KeoHam(object):
                 attrs['band_name']          = band_obj.band_dict[band_MHz]['name']
                 attrs['band_freq_name']     = band_obj.band_dict[band_MHz]['freq_name']
                 attrs['sTime']              = sDate
-                attrs['xkey']               = 'ut_hrs'
+                attrs['xkey']               = xkey
                 attrs['dx']                 = xb_size_min/60.
                 attrs['xlim']               = (0,24)
                 attrs['ykey']               = 'dist_Km'
@@ -403,7 +402,7 @@ class KeoHam(object):
                     keo_attrs['band_name']      = attrs['band_name']
                     keo_attrs['band_freq_name'] = attrs['band_freq_name']
                     keo_attrs['sTime']          = sDate
-                    keo_attrs['xkey']           = 'ut_hrs'
+                    keo_attrs['xkey']           = xkey
                     keo_attrs['ykey']           = lkey
 
                 keo[lkey][:,ginx] = avg_dist
@@ -443,7 +442,9 @@ class KeoHam(object):
             keo_crds[keo_xkey]      = data.ut_hrs.data
             keo_crds[keo_ykey]      = np.array(keo_y)
         
-            keo[lkey]               = xr.DataArray(keo[lkey],keo_crds,attrs=keo_attrs,dims=[keo_xkey,keo_ykey])
+            keo[lkey]               = xr.DataArray(keo[lkey],keo_crds,attrs=keo_attrs,dims=[keo_xkey,keo_ykey]).sortby(lkey)
+#            da  = keo[lkey]
+#            import ipdb; ipdb.set_trace()
             self.keo                = keo
 
         # Plot keogram
@@ -452,7 +453,7 @@ class KeoHam(object):
             ax  = fig.add_subplot(1,2,linx+1)
 
             this_keo    = keo[lkey]
-            result      = this_keo.plot.pcolormesh(x='ut_hrs',y=lkey,ax=ax)
+            result      = this_keo.plot.pcolormesh(x=xkey,y=lkey,ax=ax)
             ax.set_xlim(xlim)
 
         fig.tight_layout()
@@ -475,7 +476,6 @@ if __name__ == '__main__':
     rd['sDate']                 = datetime.datetime(2017,11,3,12)
     rd['eDate']                 = datetime.datetime(2017,11,4)
     rd['rgc_lim']               = (0.,3000)
-    rd['xkeys']                 = ['ut_hrs']
     rd['reprocess_raw_data']    = False
     rd['filter_region']         = 'US'
     rd['filter_region_kind']    = 'mids'
