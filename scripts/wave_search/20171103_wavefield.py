@@ -9,6 +9,7 @@ import tqdm
 
 import numpy as np
 import pandas as pd
+import xarray as xr
 
 import matplotlib as mpl
 mpl.use('Agg')
@@ -52,6 +53,7 @@ v.append('dist_Km')
 #v.append('tx_loc_source')
 #v.append('rx_loc_source')
 
+band_obj    = gl.BandData()
 
 class KeoGrid(object):
     def __init__(self,lat_lims=(36.,46.,0.5),lon_lims=(-105.,-85.,1.0)):
@@ -70,6 +72,7 @@ class KeoGrid(object):
             dct = {}
             dct['lat_lim']  = (lat,lat+lat_lims[2])
             dct['lon_lim']  = lon_lims[:2]
+            dct['lavg']     = np.mean(dct['lat_lim'])
             lat_grid.append(dct)
 
         # Define grid that varies with longitude.
@@ -78,6 +81,7 @@ class KeoGrid(object):
             dct = {}
             dct['lon_lim']  = (lon,lon+lon_lims[2])
             dct['lat_lim']  = lat_lims[:2]
+            dct['lavg']     = np.mean(dct['lon_lim'])
             lon_grid.append(dct)
         
         self.lims           = {}
@@ -171,120 +175,299 @@ class KeoGrid(object):
         if title is not None:
             ax.set_title(title)
 
-def main(run_dct):
-    """
-    data_sources: list, i.e. [1,2]
-        0: dxcluster
-        1: WSPRNet
-        2: RBN
+def calc_histogram(frame,attrs):
+    xkey    = attrs['xkey']
+    xlim    = attrs['xlim']
+    dx      = attrs['dx']
+    ykey    = attrs['ykey']
+    ylim    = attrs['ylim']
+    dy      = attrs['dy']
 
-    loc_sources: list, i.e. ['P','Q']
-        P: user Provided
-        Q: QRZ.com or HAMCALL
-        E: Estimated using prefix
-    """
+    xbins   = gl.get_bins(xlim,dx)
+    ybins   = gl.get_bins(ylim,dy)
 
-    # Get Variables from run_dct
-    sDate               = run_dct['sDate']
-    eDate               = run_dct['eDate']
-    xkeys               = run_dct['xkeys']
-    rgc_lim             = run_dct['rgc_lim']
-    filter_region       = run_dct['filter_region']
-    filter_region_kind  = run_dct['filter_region_kind']
-    output_dir          = run_dct.get('output_dir')
-    data_sources        = run_dct.get('data_sources',[1,2])
-    reprocess_raw_data  = run_dct.get('reprocess_raw_data',True)
+    if len(frame) > 2:
+       hist, xb, yb = np.histogram2d(frame[xkey], frame[ykey], bins=[xbins, ybins])
+    else:
+        xb      = xbins
+        yb      = ybins
+        hist    = np.zeros((len(xb)-1,len(yb)-1))
 
-    xb_size_min         = run_dct['xb_size_min']
-    yb_size_km          = run_dct['yb_size_km']
-    band                = run_dct['band']
-    keo_grid            = run_dct['keo_grid']
+    crds    = {}
+    crds['ut_sTime']    = attrs['sTime']
+    crds['band_MHz']    = attrs['band_MHz']
+    crds[xkey]          = xb[:-1]
+    crds[ykey]          = yb[:-1]
+    
+    attrs   = attrs.copy()
+    for key,val in attrs.items():
+        attrs[key] = str(val)
+    da = xr.DataArray(hist,crds,attrs=attrs,dims=[xkey,ykey])
+    return da 
 
-    # Define path for saving NetCDF Files
-    h5s_path = os.path.join(output_dir,'raw_data')
-    gl.prep_output({0:h5s_path},clear=reprocess_raw_data)
+class KeoHam(object):
+    def __init__(self,run_dct):
+        """
+        data_sources: list, i.e. [1,2]
+            0: dxcluster
+            1: WSPRNet
+            2: RBN
 
-    # Loop through dates
-    dates       = list(daterange(sDate, eDate))
-    if strip_time(sDate) != strip_time(eDate):
-        dates   = dates[:-1]
+        loc_sources: list, i.e. ['P','Q']
+            P: user Provided
+            Q: QRZ.com or HAMCALL
+            E: Estimated using prefix
+        """
 
-    df  = pd.DataFrame()
-    for dt_inx,dt in enumerate(tqdm.tqdm(dates,dynamic_ncols=True)):
-        h5_key  = 'df'
-        h5_name = dt.strftime('%Y%m%d') + '.data.bz2.h5'
-        h5_path = os.path.join(h5s_path,h5_name)
+        # Get Variables from run_dct
+        rd  = run_dct
+#        rd['sDate']              = rd['sDate']
+#        rd['eDate']              = rd['eDate']
+#        rd['xkeys']              = rd['xkeys']
+#        rd['rgc_lim']            = rd['rgc_lim']
+#        rd['filter_region']      = rd['filter_region']
+#        rd['filter_region_kind'] = rd['filter_region_kind']
+#        rd['xb_size_min']        = rd['xb_size_min']
+#        rd['yb_size_km']         = rd['yb_size_km']
+#        rd['band_MHz']           = rd['band_MHz']
+#        rd['keo_grid']           = rd['keo_grid']
 
-        if os.path.exists(h5_path):
-            dft = pd.read_hdf(h5_path,h5_key,complib='bzip2',complevel=9)
-        else:
-            ld_str  = dt.strftime("%Y-%m-%d") 
-            dft = gl.load_spots_csv(ld_str,data_sources=data_sources,
-                            rgc_lim=rgc_lim,loc_sources=['P','Q'],
-                            filter_region=filter_region,filter_region_kind=filter_region_kind)
+        rd['xlim']               = rd.get('xlim',(12,24))
+        rd['output_dir']         = rd.get('output_dir')
+        rd['data_sources']       = rd.get('data_sources',[1,2])
+        rd['reprocess_raw_data'] = rd.get('reprocess_raw_data',True)
+        rd['band']               = band_obj.band_dict[rd['band_MHz']]['meters']
+        self.run_dct             = rd
 
-            if dft is None:
-                print('No data for {!s}'.format(ld_str))
-                continue
+        self.load_data()
+        self.plot_stackplot_and_keogram()
+    
+    def load_data(self):
+        """
+        Load ham radio data into dataframe from CSV.
+        """
 
-            dft.to_hdf(h5_path,h5_key,complib='bzip2',complevel=9)
+        rd                  = self.run_dct
+        output_dir          = rd['output_dir']
+        reprocess_raw_data  = rd['reprocess_raw_data']
+        sDate               = rd['sDate']
+        eDate               = rd['eDate']
+        data_sources        = rd['data_sources']
+        rgc_lim             = rd['rgc_lim']
+        filter_region       = rd['filter_region']
+        filter_region_kind  = rd['filter_region_kind']
+        xkeys               = rd['xkeys']
+        band                = rd['band']
 
-        for xkey in xkeys:
-            dft[xkey]    = dt_inx*24 + dft[xkey]
+        # Define path for saving NetCDF Files
+        h5s_path = os.path.join(output_dir,'raw_data')
+        gl.prep_output({0:h5s_path},clear=reprocess_raw_data)
 
-        df  = df.append(dft,ignore_index=True)
+        # Loop through dates
+        dates       = list(daterange(sDate, eDate))
+        if strip_time(sDate) != strip_time(eDate):
+            dates   = dates[:-1]
 
-    df_0    = df.copy()
+        df  = pd.DataFrame()
+        for dt_inx,dt in enumerate(tqdm.tqdm(dates,dynamic_ncols=True)):
+            h5_key  = 'df'
+            h5_name = dt.strftime('%Y%m%d') + '.data.bz2.h5'
+            h5_path = os.path.join(h5s_path,h5_name)
 
-    # Select desired times.
-    tf      = np.logical_and(df['occurred'] >= sDate, df['occurred'] < eDate)
-    df      = df[tf].copy()
+            if os.path.exists(h5_path):
+                dft = pd.read_hdf(h5_path,h5_key,complib='bzip2',complevel=9)
+            else:
+                ld_str  = dt.strftime("%Y-%m-%d") 
+                dft = gl.load_spots_csv(ld_str,data_sources=data_sources,
+                                rgc_lim=rgc_lim,loc_sources=['P','Q'],
+                                filter_region=filter_region,filter_region_kind=filter_region_kind)
 
-    # Select desired band.
-    tf      = df['band'] == band
-    df      = df[tf].copy()
+                if dft is None:
+                    print('No data for {!s}'.format(ld_str))
+                    continue
 
-    # Set up stackplot. ####################
-    lkeys   = ['lat', 'lon']
-    for lkey in lkeys:
-        grid    = keo_grid.grid[lkey]
-        nrows   = len(grid) # Number of rows in figure
-        ncols   = 1
-        ax_inx  = 1
+                dft.to_hdf(h5_path,h5_key,complib='bzip2',complevel=9)
 
-        fig     = plt.figure(figsize=(20,nrows*2))
-        for ginx,rgn in enumerate(grid[::-1]):
-            ax  = fig.add_subplot(nrows,ncols,ax_inx)
+            for xkey in xkeys:
+                dft[xkey]    = dt_inx*24 + dft[xkey]
 
-            if lkey == 'lat':
-                lavg    = np.mean(rgn['lat_lim'])
-                ylabel  = '{:0.1f}'.format(lavg)+'$^{\circ}$N'
-            elif lkey == 'lon':
-                lavg    = np.mean(rgn['lon_lim'])
-                ylabel  = '{:0.1f}'.format(lavg)+'$^{\circ}$E'
-            
-            ax.set_ylabel(ylabel)
+            df  = df.append(dft,ignore_index=True)
 
-            ax.set_xlim(sDate,eDate)
-            if ginx != nrows-1:
-                ax.set_xticklabels([])
-            ax_inx += 1
+        df_0    = df.copy()
+
+        # Select desired times.
+        tf      = np.logical_and(df['occurred'] >= sDate, df['occurred'] < eDate)
+        df      = df[tf].copy()
+
+        # Select desired band.
+        tf      = df['band'] == band
+        df      = df[tf].copy()
+
+        self.df = df
+
+    def plot_stackplot_and_keogram(self):
+        rd                  = self.run_dct
+        keo_grid            = rd['keo_grid']
+        output_dir          = rd['output_dir']
+        sDate               = rd['sDate']
+        eDate               = rd['eDate']
+        band                = rd['band']
+        band_MHz            = rd['band_MHz']
+        xb_size_min         = rd['xb_size_min']
+        yb_size_km          = rd['yb_size_km']
+        xlim                = rd['xlim']
+        rgc_lim             = rd['rgc_lim']
+
+        df                  = self.df
+
+        xkey                = 'ut_hrs'
+
+        # Set up stackplot. ####################
+        lkeys   = ['lat', 'lon']
+
+        keo     = {} # Create dictionary to store keograms.
+        for linx,lkey in enumerate(lkeys):
+            grid    = keo_grid.grid[lkey]
+
+            nrows   = len(grid) # Number of rows in figure
+            ncols   = 1
+            ax_inx  = 1
+
+            sDate_str   = sDate.strftime('%Y%m%d.%H%M')
+            eDate_str   = eDate.strftime('%Y%m%d.%H%M')
+            date_str    = '{!s}-{!s}'.format(sDate_str,eDate_str)
+            fname       = '{!s}_{!s}_stackplot.png'.format(date_str,lkey)
+
+            fig     = plt.figure(figsize=(20,nrows*2))
+            for ginx,rgn in enumerate(grid[::-1]):
+
+                lat_0   = rgn['lat_lim'][0]
+                lat_1   = rgn['lat_lim'][1]
+
+                lon_0   = rgn['lon_lim'][0]
+                lon_1   = rgn['lon_lim'][1]
+
+                dft     = df.copy()
+
+                tf      = np.logical_and(dft['md_lat'] >= lat_0, dft['md_lat'] < lat_1)
+                dft     = dft[tf].copy()
+
+                tf      = np.logical_and(dft['md_long'] >= lon_0, dft['md_long'] < lon_1)
+                dft     = dft[tf].copy()
+
+                ax  = fig.add_subplot(nrows,ncols,ax_inx)
+
+                attrs                       = {}
+    #            attrs['filter_region']      = filter_region
+    #            attrs['filter_region_kind'] = filter_region_kind
+                attrs['band_MHz']           = band_MHz
+                attrs['band_name']          = band_obj.band_dict[band_MHz]['name']
+                attrs['band_freq_name']     = band_obj.band_dict[band_MHz]['freq_name']
+                attrs['sTime']              = sDate
+                attrs['xkey']               = 'ut_hrs'
+                attrs['dx']                 = xb_size_min/60.
+                attrs['xlim']               = (0,24)
+                attrs['ykey']               = 'dist_Km'
+                attrs['ylim']               = rgc_lim
+                attrs['dy']                 = yb_size_km
+                data                        = calc_histogram(dft,attrs)
+                data.name                   = 'Counts'
+
+                log_z = False
+                if log_z:
+                    tf          = data < 1.
+                    data        = np.log10(data)
+                    data        = xr.where(tf,0,data)
+                    data.name   = 'log({})'.format(data.name)
+
+                # Plot the Pcolormesh
+    #            result      = data.plot.contourf(x=xkey,y='dist_Km',ax=ax,levels=30,vmin=0)
+                result      = data.plot.pcolormesh(x=xkey,y='dist_Km',ax=ax,vmin=0,cbar_kwargs={'pad':0.08})
+
+                # Calculate Derived Line
+                sum_cnts    = data.sum('dist_Km').data
+                avg_dist    = (data.dist_Km.data @ data.data.T) / sum_cnts
+
+                ax2     = ax.twinx()
+                ax2.plot(data.ut_hrs,avg_dist,lw=2,color='w')
+                ax2.set_ylim(0,3000)
+                ax2.set_ylabel('Avg Dist\n[km]')
+
+                if lkey not in keo:
+                    keo[lkey]   = np.zeros((len(data.ut_hrs),len(grid)))
+                    keo_y       = []
+
+                    keo_attrs   = {}
+                    keo_attrs['name']           = 'avg_dist_km'
+                    keo_attrs['band_MHz']       = attrs['band_MHz']
+                    keo_attrs['band_name']      = attrs['band_name']
+                    keo_attrs['band_freq_name'] = attrs['band_freq_name']
+                    keo_attrs['sTime']          = sDate
+                    keo_attrs['xkey']           = 'ut_hrs'
+                    keo_attrs['ykey']           = lkey
+
+                keo[lkey][:,ginx] = avg_dist
+                keo_y.append(rgn['lavg'])
+
+                if lkey == 'lat':
+                    lavg    = np.mean(rgn['lat_lim'])
+                    ylabel  = '{:0.1f}'.format(lavg)+'$^{\circ}$N'
+                elif lkey == 'lon':
+                    lavg    = np.mean(rgn['lon_lim'])
+                    ylabel  = '{:0.1f}'.format(lavg)+'$^{\circ}$E'
+                
+                ax.set_ylabel(ylabel)
+                ax.set_xlabel('')
+                ax.set_title('')
+
+    #            ax.set_xlim(sDate,eDate)
+                ax.set_xlim(xlim)
+                if ginx != nrows-1:
+                    ax.set_xticklabels([])
+                ax_inx += 1
+
+            fig.tight_layout()
+            fig.text(0.5,1.0,fname,fontdict={'weight':'bold','size':36},ha='center')
+
+            fpath       = os.path.join(output_dir,fname)
+            fig.savefig(fpath,bbox_inches='tight')
+            plt.close(fig)
+
+            # Convert Keogram array into Xarray
+            keo_xkey            = keo_attrs['xkey']
+            keo_ykey            = keo_attrs['ykey']
+
+            keo_crds = {}
+            keo_crds['ut_sTime']    = keo_attrs['sTime']
+            keo_crds['band_MHz']    = keo_attrs['band_MHz']
+            keo_crds[keo_xkey]      = data.ut_hrs.data
+            keo_crds[keo_ykey]      = np.array(keo_y)
+        
+            keo[lkey]               = xr.DataArray(keo[lkey],keo_crds,attrs=keo_attrs,dims=[keo_xkey,keo_ykey])
+            self.keo                = keo
+
+        # Plot keogram
+        fig = plt.figure(figsize=(40,10))
+        for linx, lkey in enumerate(['lat','lon']):
+            ax  = fig.add_subplot(1,2,linx+1)
+
+            this_keo    = keo[lkey]
+            result      = this_keo.plot.pcolormesh(x='ut_hrs',y=lkey,ax=ax)
+            ax.set_xlim(xlim)
 
         fig.tight_layout()
-        sDate_str   = sDate.strftime('%Y%m%d.%H%M')
-        eDate_str   = eDate.strftime('%Y%m%d.%H%M')
-        date_str    = '{!s}-{!s}'.format(sDate_str,eDate_str)
-        fname       = '{!s}_{!s}_stackplot.png'.format(date_str,lkey)
-        fpath       = os.path.join(output_dir,fname)
+        fname   = 'keogram.png'
+        fpath   = os.path.join(output_dir,fname)
         fig.savefig(fpath,bbox_inches='tight')
-        plt.close(fig)
-    import ipdb; ipdb.set_trace()
-
 
 if __name__ == '__main__':
     output_dir  = os.path.join('output/wave_search_2017NOV03')
     gl.prep_output({0:output_dir},clear=False,php=False)
 
+
+#    lat_lims=( 36.,  46., 1.0)
+#    lon_lims=(-90., -70., 2.0)
+#    keo_grid    = KeoGrid(lat_lims=lat_lims,lon_lims=lon_lims)
     keo_grid    = KeoGrid()
     keo_grid.plot_maps(output_dir=output_dir)
 
@@ -299,8 +482,12 @@ if __name__ == '__main__':
     rd['output_dir']            = output_dir
     rd['keo_grid']              = keo_grid
 
-    rd['band']                  = 20
-    rd['xb_size_min']           = 2.
-    rd['yb_size_km']            = 25.
+    rd['band_MHz']              = 14
+#    rd['xb_size_min']           = 2.
+#    rd['yb_size_km']            = 25.
 
-    main(rd)
+    rd['xb_size_min']           = 5
+    rd['yb_size_km']            = 75.
+
+    keo_ham = KeoHam(rd)
+    import ipdb; ipdb.set_trace()
