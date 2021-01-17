@@ -470,7 +470,7 @@ def regional_filter(region,df,kind='mids'):
 
     return df
 
-def load_spots_csv(date_str,data_sources=[1,2],loc_sources=None,
+def load_spots_csv(date_str,data_sources=[1,2],loc_sources=['P','Q'],
         rgc_lim=None,filter_region=None,filter_region_kind='mids'):
     """
     Load spots from CSV file and filter for network/location source quality.
