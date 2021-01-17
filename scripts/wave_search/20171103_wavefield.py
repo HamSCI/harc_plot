@@ -175,6 +175,61 @@ class KeoGrid(object):
         if title is not None:
             ax.set_title(title)
 
+def load_psk(date_str,rgc_lim=None,filter_region=None,filter_region_kind='mids',**kwargs):
+    if date_str != '2017-11-03':
+        return
+
+    data_dir    = 'data/pskreporter'
+    fnames = []
+    fnames.append('PSK_data_20171103_p1.csv.bz2')
+    fnames.append('PSK_data_20171103_p2.csv.bz2')
+    fnames.append('PSK_data_20171103_p3.csv.bz2')
+
+    grid_prsn   = 6
+
+    df  = pd.DataFrame()
+    for fname in fnames:
+        fpath   = os.path.join(data_dir,fname)
+        print(fpath)
+
+        dft = pd.read_csv(fpath,parse_dates=['theTimeStamp'])
+        del dft['flowStartSeconds']
+
+        df  = df.append(dft,ignore_index=True)
+
+    df = df.rename(columns={'frequency':'freq','theTimeStamp':'occurred','senderLocator':'tx_grid','receiverLocator':'rx_grid'})
+    df['freq'] = pd.to_numeric(df['freq'], errors='coerce') / 1000. # Convert frequency to kHz
+    df = df.dropna()
+
+    for prefix in ['tx_','rx_']:
+        print('   Converting {!s}grid to {!s}lat and {!s}long...'.format(prefix,prefix,prefix))
+        lats, lons  = harc_plot.locator.gridsquare2latlon(df[prefix+'grid'],new_precision=8)
+        df[prefix+'lat'] = lats
+        df[prefix+'long'] = lons
+        print()
+
+    # Compute tx-rx great circle distance.
+    df['dist_Km'] = harc_plot.geopack.greatCircleDist(df['tx_lat'],df['tx_long'],df['rx_lat'],df['rx_long'])*6371
+
+    midpoints       = harc_plot.geopack.midpoint(df["tx_lat"], df["tx_long"], df["rx_lat"], df["rx_long"])
+    df['md_lat']    = midpoints[0]
+    df['md_long']   = midpoints[1]
+
+    # Regional Filtering
+    if filter_region is not None:
+        df_raw  = df.copy()
+        df      = harc_plot.gl.regional_filter(filter_region,df,kind=filter_region_kind)
+
+    if len(df) == 0:
+        return
+
+    df["ut_hrs"]    = df['occurred'].map(lambda x: x.hour + x.minute/60. + x.second/3600.)
+    df['slt_mid']   = (df['ut_hrs'] + df['md_long']/15.) % 24.
+
+    df['source']    = 3
+
+    return df
+
 def calc_histogram(frame,attrs):
     xkey    = attrs['xkey']
     xlim    = attrs['xlim']
@@ -212,6 +267,7 @@ class KeoHam(object):
             0: dxcluster
             1: WSPRNet
             2: RBN
+            3: PSKReporter [limited availability]
 
         loc_sources: list, i.e. ['P','Q']
             P: user Provided
@@ -234,9 +290,10 @@ class KeoHam(object):
         rd['xkey']               = rd.get('xkey','ut_hrs')
         rd['xlim']               = rd.get('xlim',(12,24))
         rd['output_dir']         = rd.get('output_dir')
-        rd['data_sources']       = rd.get('data_sources',[1,2])
+        rd['data_sources']       = rd.get('data_sources',[1,2,3])
         rd['reprocess_raw_data'] = rd.get('reprocess_raw_data',True)
-        rd['band']               = band_obj.band_dict[rd['band_MHz']]['meters']
+
+#        rd['band']               = band_obj.band_dict[rd['band_MHz']]['meters']
         self.run_dct             = rd
 
         self.load_data()
@@ -258,7 +315,7 @@ class KeoHam(object):
         filter_region       = rd['filter_region']
         filter_region_kind  = rd['filter_region_kind']
         xkey                = rd['xkey']
-        band                = rd['band']
+        band_MHz            = rd['band_MHz']
 
         # Define path for saving NetCDF Files
         h5s_path = os.path.join(output_dir,'raw_data')
@@ -283,9 +340,21 @@ class KeoHam(object):
                                 rgc_lim=rgc_lim,loc_sources=['P','Q'],
                                 filter_region=filter_region,filter_region_kind=filter_region_kind)
 
+                # Load in PSKReporter Data
+                if 3 in data_sources:
+                    df_pskr = load_psk(ld_str,rgc_lim=rgc_lim,
+                                    filter_region=filter_region,filter_region_kind=filter_region_kind)
+                    if df_pskr is not None:
+                        if dft is None:
+                            dft = df_pskr
+                        else:
+                            dft = dft.append(df_pskr,ignore_index=True)
+
                 if dft is None:
                     print('No data for {!s}'.format(ld_str))
                     continue
+
+                dft['band_MHz'] = np.floor(dft['freq']/1000.).astype(np.int)
 
                 dft.to_hdf(h5_path,h5_key,complib='bzip2',complevel=9)
 
@@ -295,12 +364,19 @@ class KeoHam(object):
 
         df_0    = df.copy()
 
+        # Double-check sources
+        # Select spotting networks
+        if data_sources is not None:
+            tf  = df.source.map(lambda x: x in data_sources)
+            df  = df[tf].copy()
+
+
         # Select desired times.
         tf      = np.logical_and(df['occurred'] >= sDate, df['occurred'] < eDate)
         df      = df[tf].copy()
 
         # Select desired band.
-        tf      = df['band'] == band
+        tf      = df['band_MHz'] == band_MHz
         df      = df[tf].copy()
 
         self.df = df
@@ -310,13 +386,13 @@ class KeoHam(object):
         output_dir          = rd['output_dir']
         sDate               = rd['sDate']
         eDate               = rd['eDate']
-        band                = rd['band']
         band_MHz            = rd['band_MHz']
         xb_size_min         = rd['xb_size_min']
         yb_size_km          = rd['yb_size_km']
         xlim                = rd['xlim']
         rgc_lim             = rd['rgc_lim']
         xkey                = rd['xkey']
+        plot_summary_line   = rd.get('plot_summary_line',True)
 
         df                  = self.df
 
@@ -357,10 +433,11 @@ class KeoHam(object):
         sum_cnts    = data.sum('dist_Km').data
         avg_dist    = (data.dist_Km.data @ data.data.T) / sum_cnts
 
-        ax2     = ax.twinx()
-        ax2.plot(data.ut_hrs,avg_dist,lw=2,color='w')
-        ax2.set_ylim(0,3000)
-        ax2.set_ylabel('Avg Dist\n[km]')
+        if plot_summary_line:
+            ax2     = ax.twinx()
+            ax2.plot(data.ut_hrs,avg_dist,lw=2,color='w')
+            ax2.set_ylim(0,3000)
+            ax2.set_ylabel('Avg Dist\n[km]')
 
         ax.set_xlabel('')
         ax.set_title('')
@@ -380,13 +457,13 @@ class KeoHam(object):
         output_dir          = rd['output_dir']
         sDate               = rd['sDate']
         eDate               = rd['eDate']
-        band                = rd['band']
         band_MHz            = rd['band_MHz']
         xb_size_min         = rd['xb_size_min']
         yb_size_km          = rd['yb_size_km']
         xlim                = rd['xlim']
         rgc_lim             = rd['rgc_lim']
         xkey                = rd['xkey']
+        plot_summary_line   = rd.get('plot_summary_line',True)
 
         df                  = self.df
 
@@ -457,10 +534,11 @@ class KeoHam(object):
                 sum_cnts    = data.sum('dist_Km').data
                 avg_dist    = (data.dist_Km.data @ data.data.T) / sum_cnts
 
-                ax2     = ax.twinx()
-                ax2.plot(data.ut_hrs,avg_dist,lw=2,color='w')
-                ax2.set_ylim(0,3000)
-                ax2.set_ylabel('Avg Dist\n[km]')
+                if plot_summary_line:
+                    ax2     = ax.twinx()
+                    ax2.plot(data.ut_hrs,avg_dist,lw=2,color='w')
+                    ax2.set_ylim(0,3000)
+                    ax2.set_ylabel('Avg Dist\n[km]')
 
                 if lkey not in keo:
                     keo[lkey]   = np.zeros((len(data.ut_hrs),len(grid)))
@@ -546,11 +624,15 @@ if __name__ == '__main__':
     rd['sDate']                 = datetime.datetime(2017,11,3,12)
     rd['eDate']                 = datetime.datetime(2017,11,4)
     rd['rgc_lim']               = (0.,3000)
+    rd['data_sources']          = [1,2,3]
+#    rd['data_sources']          = [1,2]
     rd['reprocess_raw_data']    = False
     rd['filter_region']         = 'US'
     rd['filter_region_kind']    = 'mids'
     rd['output_dir']            = output_dir
     rd['keo_grid']              = keo_grid
+
+#    rd['plot_summary_line']     = False
 
     rd['band_MHz']              = 14
     rd['xb_size_min']           = 2.
