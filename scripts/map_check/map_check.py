@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 import os
 from collections import OrderedDict
 
@@ -10,7 +10,7 @@ import cartopy.crs as ccrs
 import numpy as np
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 
-from library import gen_lib as gl
+from harc_plot import gen_lib as gl
 
 goess   = OrderedDict()
 tmp     = {}
