@@ -240,7 +240,24 @@ class KeoHam(object):
         self.run_dct             = rd
 
         self.load_data()
-        self.plot_timeseries()
+
+        sDate = rd['sDate']
+        eDate = rd['eDate']
+        sDate_str   = sDate.strftime('%Y%m%d.%H%M')
+        eDate_str   = eDate.strftime('%Y%m%d.%H%M')
+        date_str    = '{!s}-{!s}'.format(sDate_str,eDate_str)
+
+        png_dir     = os.path.join(output_dir,date_str)
+        gl.prep_output({0:png_dir},clear=True)
+        self.run_dct['png_dir'] = png_dir
+
+        gps_dates = [sDate]
+        while gps_dates[-1] < eDate:
+            gps_dates.append(gps_dates[-1] + datetime.timedelta(minutes=5))
+
+        for gps_date in gps_dates:
+            print(gps_date)
+            self.plot_timeseries(gps_date)
     
     def load_data(self):
         """
@@ -296,7 +313,7 @@ class KeoHam(object):
                     print('No data for {!s}'.format(ld_str))
                     continue
 
-                dft['band_MHz'] = np.floor(dft['freq']/1000.).astype(np.int)
+                dft['band_MHz'] = np.floor(dft['freq']/1000.).astype(int)
 
                 dft.to_hdf(h5_path,h5_key,complib='bzip2',complevel=9)
 
@@ -323,9 +340,9 @@ class KeoHam(object):
 
         self.df = df
 
-    def plot_timeseries(self):
+    def plot_timeseries(self,gps_date):
         rd                  = self.run_dct
-        output_dir          = rd['output_dir']
+        png_dir             = rd['png_dir']
         sDate               = rd['sDate']
         eDate               = rd['eDate']
         band_MHz            = rd['band_MHz']
@@ -340,35 +357,23 @@ class KeoHam(object):
 
         df                  = self.df
 
-        sDate_str   = sDate.strftime('%Y%m%d.%H%M')
-        eDate_str   = eDate.strftime('%Y%m%d.%H%M')
-        date_str    = '{!s}-{!s}'.format(sDate_str,eDate_str)
-        fname       = '{!s}_timeseries.png'.format(date_str)
+#        sDate_str   = sDate.strftime('%Y%m%d.%H%M')
+#        eDate_str   = eDate.strftime('%Y%m%d.%H%M')
+#        date_str    = '{!s}-{!s}'.format(sDate_str,eDate_str)
+        gpsDate_str = gps_date.strftime('%Y%m%d.%H%M')
+        fname       = '{!s}_ham_tec.png'.format(gpsDate_str)
 
-        fig     = plt.figure(figsize=(35,10))
-        col_0       = 0
-        col_0_span  = 30
-        col_1       = 35
-        col_1_span  = 65
-        nrows       = 2
-        ncols       = 100
-
-        ################################################################################
-        # Plot Map #####################################################################
-        ax = plt.subplot2grid((nrows,ncols),(0,col_0),
-                projection=ccrs.PlateCarree(),colspan=col_0_span)
-        ax_00       = ax
-
-        lbl_size    = 24
-        ax.set_title('(a)',{'size':lbl_size},'left')
-        
-        self.map_ax(df,ax)
+        fig     = plt.figure(figsize=(20,10))
 
         ################################################################################ 
         # Plot Time Series ############################################################# 
-        ax      = plt.subplot2grid((nrows,ncols),(0,col_1),colspan=col_1_span)
+        ax      = fig.add_subplot(3,1,1)
         ax_01   = ax
         result  = self.time_series_ax(df,ax,vmax=None,log_z=True)
+        
+
+        gps_hr  = gps_date.hour + gps_date.minute/60. + gps_date.second/3600.
+        ax.axvline(gps_hr,lw=3,color='w',zorder=1500)
 
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
@@ -378,64 +383,33 @@ class KeoHam(object):
         ax.set_xlabel('')
         ax.set_ylabel('Great Circle Range [km]')
         ax.set_title('{!s} MHz RBN, PSKReporter, and WSPRNet'.format(rd['band_MHz']))
-        ax.set_title('(b)',{'size':lbl_size},'left')
 
         ################################################################################
-        # Plot SuperDARN Map ###########################################################
-        radar       = 'bks'
-        beam        = 13
-        fitacf      = load_fitacf(sDate,eDate,radar)
-        hdw_data    = pydarn.read_hdw_file(radar,sDate)
+        # Plot GPS TEC Map #############################################################
+        ax      = fig.add_subplot(3,1,(2,3),projection=ccrs.PlateCarree())
+        ax.set_title(str(gps_date))
+        ax_02   = ax
 
-        ax = plt.subplot2grid((nrows,ncols),(1,col_0),
-                projection=ccrs.PlateCarree(),colspan=col_0_span)
-        ax_10       = ax
-        self.map_ax_superdarn(ax,hdw_data,beam)
-        ax.set_title('{!s} SuperDARN Radar Beam {!s}'.format(radar.upper(),beam))
-        ax.set_title('(c)',{'size':lbl_size},'left')
+        self.map_ax_tec(ax)
 
-        ################################################################################ 
-        # Plot SuperDARN Time Series ################################################### 
-        ax      = plt.subplot2grid((nrows,ncols),(1,col_1),colspan=col_1_span)
-        ax_11   = ax
-        pydarn.RTP.plot_range_time(fitacf, beam_num=beam, parameter='p_l', zmax=50, zmin=0, date_fmt='%H', colorbar_label='Power (dB)', cmap='viridis',ax=ax)
-        ax.set_ylabel('Slant Range [km]')
-        ax.set_ylim(ylim)
-        if yticks is not None:
-            ax.set_yticks(yticks)
-        ax.set_xlim(sDate,eDate)
-        ax.set_xlabel('Time [UT]')
-        ax.set_title('{!s} SuperDARN Radar Beam {!s}'.format(radar.upper(),beam))
-        ax.set_title('(d)',{'size':lbl_size},'left')
-
-        gl.adjust_axes(ax_01,ax_11)
-        gl.adjust_axes(ax_10,ax_00)
-        
-        ax_0        = ax_10
-        ax_1        = ax_00
-
-        ax_0_pos    = list(ax_0.get_position().bounds)
-        ax_1_pos    = list(ax_1.get_position().bounds)
-        ax_0_pos[0] = ax_1_pos[0]
-        ax_0_pos[2] = ax_1_pos[2]
-        ax_0.set_position(ax_0_pos)
+#        ax_0_pos    = list(ax_0.get_position().bounds)
+#        ax_1_pos    = list(ax_1.get_position().bounds)
+#        ax_0_pos[0] = ax_1_pos[0]
+#        ax_0_pos[2] = ax_1_pos[2]
+#        ax_0.set_position(ax_0_pos)
 
         dfmt    = '%Y %b %d %H%M UT'
         title   = '{!s} - {!s}'.format(sDate.strftime(dfmt), eDate.strftime(dfmt))
         fig.text(0.5,0.95,title,fontdict={'weight':'bold','size':24},ha='center')
 
-        fpath       = os.path.join(output_dir,fname)
+        fpath       = os.path.join(png_dir,fname)
         fig.savefig(fpath,bbox_inches='tight')
         plt.close(fig)
 
-    def map_ax_superdarn(self,ax,hdw_data,beam):
+    def map_ax_tec(self,ax):
         rd                  = self.run_dct
         sDate               = rd['sDate']
         filter_region       = rd.get('filter_region','World')
-
-        map_attrs                       = {}
-        map_attrs['xlim']               = (-180,180)
-        map_attrs['ylim']               = (-90,90)
 
 #        ax.coastlines(zorder=10,color='k')
 #        ax.add_feature(cartopy.feature.LAND)
@@ -445,62 +419,6 @@ class KeoHam(object):
 #        ax.add_feature(cartopy.feature.LAKES, alpha=0.5)
 #        ax.add_feature(cartopy.feature.RIVERS)
         ax.set_title('')
-
-        beams_lats, beams_lons  = pydarn.radar_fov(hdw_data.stid,coords='geo',date=sDate)
-        fan_shape           = beams_lons.shape
-
-        # FOV Outline ##################################################################
-        gate_max            = 75
-        fov_lons_left       = beams_lons[0:gate_max,0]
-        fov_lats_left       = beams_lats[0:gate_max,0]
-
-        fov_lons_right      = beams_lons[0:gate_max,-1]
-        fov_lats_right      = beams_lats[0:gate_max,-1]
-
-        fov_lons_top        = beams_lons[gate_max,0:]
-        fov_lats_top        = beams_lats[gate_max,0:]
-
-        fov_lons_bot        = beams_lons[0,0:]
-        fov_lats_bot        = beams_lats[0,0:]
-
-        fov_lons            = fov_lons_left.tolist()        \
-                            + fov_lons_top.tolist()         \
-                            + fov_lons_right.tolist()[::-1] \
-                            + fov_lons_bot.tolist()[::-1]
-
-        fov_lats            = fov_lats_left.tolist()        \
-                            + fov_lats_top.tolist()         \
-                            + fov_lats_right.tolist()[::-1] \
-                            + fov_lats_bot.tolist()[::-1]
-
-        ax.fill(fov_lons,fov_lats,color='0.8',ec='k')
-
-        # Beam Outline #################################################################
-        beam_lons_left       = beams_lons[0:gate_max,beam]
-        beam_lats_left       = beams_lats[0:gate_max,beam]
-
-        beam_lons_right      = beams_lons[0:gate_max,beam+1]
-        beam_lats_right      = beams_lats[0:gate_max,beam+1]
-
-        beam_lons_top        = beams_lons[gate_max,beam:beam+1]
-        beam_lats_top        = beams_lats[gate_max,beam:beam+1]
-
-        beam_lons_bot        = beams_lons[0,beam:beam+1]
-        beam_lats_bot        = beams_lats[0,beam:beam+1]
-
-        beam_lons           = beam_lons_left.tolist()        \
-                            + beam_lons_top.tolist()         \
-                            + beam_lons_right.tolist()[::-1] \
-                            + beam_lons_bot.tolist()[::-1]
-
-        beam_lats           = beam_lats_left.tolist()        \
-                            + beam_lats_top.tolist()         \
-                            + beam_lats_right.tolist()[::-1] \
-                            + beam_lats_bot.tolist()[::-1]
-
-        ax.fill(beam_lons,beam_lats,color='r',ec='k')
-
-        ax.scatter(hdw_data.geographic.lon,hdw_data.geographic.lat,s=25)
 
         plot_rgn    = gl.regions.get(filter_region)
         ax.set_xlim(plot_rgn.get('lon_lim'))
@@ -599,11 +517,8 @@ class KeoHam(object):
 
 
 if __name__ == '__main__':
-    output_dir  = os.path.join('output/swo2r')
+    output_dir  = os.path.join('output/ham_tec')
     gl.prep_output({0:output_dir},clear=False,php=False)
-
-    lat_lims=(  36.,  46., 10./4)
-    lon_lims=(-105., -85., 20./4)
 
     rd  = {}
 #    rd['sDate']                 = datetime.datetime(2017,11,3,12)

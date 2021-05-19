@@ -401,27 +401,50 @@ class KeoHam(object):
         date_str    = '{!s}-{!s}'.format(sDate_str,eDate_str)
         fname       = '{!s}_timeseries.png'.format(date_str)
 
-        fig     = plt.figure(figsize=(35,10))
-        col_0       = 0
-        col_0_span  = 30
-        col_1       = 36
-        col_1_span  = 65
-        nrows       = 1
-        ncols       = 100
+        fig     = plt.figure(figsize=(20,8))
+        ax      = fig.add_subplot(111)
 
-        ################################################################################
-        # Plot Map #####################################################################
-        ax = plt.subplot2grid((nrows,ncols),(0,col_0),
-                projection=ccrs.PlateCarree(),colspan=col_0_span)
-        self.map_ax(df,ax)
+        attrs                       = {}
+        attrs['band_MHz']           = band_MHz
+        attrs['band_name']          = band_obj.band_dict[band_MHz]['name']
+        attrs['band_freq_name']     = band_obj.band_dict[band_MHz]['freq_name']
+        attrs['sTime']              = sDate
+        attrs['xkey']               = xkey
+        attrs['dx']                 = xb_size_min/60.
+        attrs['xlim']               = (0,24)
+        attrs['ykey']               = 'dist_Km'
+        attrs['ylim']               = rgc_lim
+        attrs['dy']                 = yb_size_km
+        data                        = calc_histogram(df,attrs)
+        data.name                   = 'Counts'
 
-        ################################################################################ 
-        # Plot Time Series ############################################################# 
-        ax      = plt.subplot2grid((nrows,ncols),(0,col_1),colspan=col_1_span)
-        result  = self.time_series_ax(df,ax,vmax=None,log_z=False)
+        log_z = False
+        if log_z:
+            tf          = data < 1.
+            data        = np.log10(data)
+            data        = xr.where(tf,0,data)
+            data.name   = 'log({})'.format(data.name)
+
+        # Plot the Pcolormesh
+#            result      = data.plot.contourf(x=xkey,y='dist_Km',ax=ax,levels=30,vmin=0)
+        result      = data.plot.pcolormesh(x=xkey,y='dist_Km',ax=ax,vmin=0,vmax=None,cbar_kwargs={'pad':0.08})
+
+        # Calculate Derived Line
+        sum_cnts    = data.sum('dist_Km').data
+        avg_dist    = (data.dist_Km.data @ data.data.T) / sum_cnts
+
+        if plot_summary_line:
+            ax2     = ax.twinx()
+            ax2.plot(data.ut_hrs,avg_dist,lw=2,color='w')
+            ax2.set_ylim(0,3000)
+            ax2.set_ylabel('Avg Dist\n[km]')
+
+        ax.set_xlabel('')
+        ax.set_title('')
 
         ax.set_xlim(xlim)
 
+        fig.tight_layout()
         fig.text(0.5,1.0,fname,fontdict={'weight':'bold','size':24},ha='center')
 
         fpath       = os.path.join(output_dir,fname)
@@ -467,54 +490,6 @@ class KeoHam(object):
         ax.set_xlim(plot_rgn.get('lon_lim'))
         ax.set_ylim(plot_rgn.get('lat_lim'))
 
-    def time_series_ax(self,df,ax,vmax=None,log_z=False):
-        rd                  = self.run_dct
-        sDate               = rd['sDate']
-        band_MHz            = rd['band_MHz']
-        xb_size_min         = rd['xb_size_min']
-        yb_size_km          = rd['yb_size_km']
-        rgc_lim             = rd['rgc_lim']
-        xkey                = rd['xkey']
-        xlim                = rd['xlim']
-        plot_summary_line   = rd.get('plot_summary_line',True)
-
-        attrs                       = {}
-        attrs['band_MHz']           = band_MHz
-        attrs['band_name']          = band_obj.band_dict[band_MHz]['name']
-        attrs['band_freq_name']     = band_obj.band_dict[band_MHz]['freq_name']
-        attrs['sTime']              = sDate
-        attrs['xkey']               = xkey
-        attrs['dx']                 = xb_size_min/60.
-        attrs['xlim']               = (0,24)
-        attrs['ykey']               = 'dist_Km'
-        attrs['ylim']               = rgc_lim
-        attrs['dy']                 = yb_size_km
-        data                        = calc_histogram(df,attrs)
-        data.name                   = 'Counts'
-
-        if log_z:
-            tf          = data < 1.
-            data        = np.log10(data)
-            data        = xr.where(tf,0,data)
-            data.name   = 'log({})'.format(data.name)
-
-        # Plot the Pcolormesh
-        result      = data.plot.pcolormesh(x=xkey,y='dist_Km',ax=ax,vmin=0,vmax=vmax,cbar_kwargs={'pad':0.08})
-
-        # Calculate Derived Line
-        sum_cnts    = data.sum('dist_Km').data
-        avg_dist    = (data.dist_Km.data @ data.data.T) / sum_cnts
-
-        if plot_summary_line:
-            ax2     = ax.twinx()
-            ax2.plot(data.ut_hrs,avg_dist,lw=2,color='w')
-            ax2.set_ylim(0,3000)
-            ax2.set_ylabel('Avg Dist\n[km]')
-
-        ax.set_xlim(xlim)
-
-        return {'data':data,'avg_dist':avg_dist}
-
     def plot_stackplot_and_keogram(self):
         rd                  = self.run_dct
         keo_grid            = rd['keo_grid']
@@ -524,9 +499,9 @@ class KeoHam(object):
         band_MHz            = rd['band_MHz']
         xb_size_min         = rd['xb_size_min']
         yb_size_km          = rd['yb_size_km']
+        xlim                = rd['xlim']
         rgc_lim             = rd['rgc_lim']
         xkey                = rd['xkey']
-        xlim                = rd['xlim']
         filter_region       = rd.get('filter_region','World')
         plot_summary_line   = rd.get('plot_summary_line',True)
         stackplot_vmax      = rd.get('stackplot_vmax')
@@ -576,15 +551,47 @@ class KeoHam(object):
 
                 ax = plt.subplot2grid((nrows,ncols),(ginx,col_0),
                         projection=ccrs.PlateCarree(),colspan=col_0_span)
-                self.map_ax(dft,ax)
+                map_ax(dft,ax)
 
                 ################################################################################ 
                 # Plot Time Series ############################################################# 
                 ax      = plt.subplot2grid((nrows,ncols),(ginx,col_1),colspan=col_1_span)
-                result  = self.time_series_ax(dft,ax,vmax=stackplot_vmax,log_z=False)
+#                ax  = fig.add_subplot(nrows,ncols,ax_inx)
 
-                data        = result['data']
-                avg_dist    = result['avg_dist']
+                attrs                       = {}
+                attrs['band_MHz']           = band_MHz
+                attrs['band_name']          = band_obj.band_dict[band_MHz]['name']
+                attrs['band_freq_name']     = band_obj.band_dict[band_MHz]['freq_name']
+                attrs['sTime']              = sDate
+                attrs['xkey']               = xkey
+                attrs['dx']                 = xb_size_min/60.
+                attrs['xlim']               = (0,24)
+                attrs['ykey']               = 'dist_Km'
+                attrs['ylim']               = rgc_lim
+                attrs['dy']                 = yb_size_km
+                data                        = calc_histogram(dft,attrs)
+                data.name                   = 'Counts'
+
+                log_z = False
+                if log_z:
+                    tf          = data < 1.
+                    data        = np.log10(data)
+                    data        = xr.where(tf,0,data)
+                    data.name   = 'log({})'.format(data.name)
+
+                # Plot the Pcolormesh
+    #            result      = data.plot.contourf(x=xkey,y='dist_Km',ax=ax,levels=30,vmin=0)
+                result      = data.plot.pcolormesh(x=xkey,y='dist_Km',ax=ax,vmin=0,vmax=stackplot_vmax,cbar_kwargs={'pad':0.08})
+
+                # Calculate Derived Line
+                sum_cnts    = data.sum('dist_Km').data
+                avg_dist    = (data.dist_Km.data @ data.data.T) / sum_cnts
+
+                if plot_summary_line:
+                    ax2     = ax.twinx()
+                    ax2.plot(data.ut_hrs,avg_dist,lw=2,color='w')
+                    ax2.set_ylim(0,3000)
+                    ax2.set_ylabel('Avg Dist\n[km]')
 
                 if lkey not in keo:
                     keo[lkey]   = np.zeros((len(data.ut_hrs),len(grid)))
@@ -592,9 +599,9 @@ class KeoHam(object):
 
                     keo_attrs   = {}
                     keo_attrs['name']           = 'avg_dist_km'
-                    keo_attrs['band_MHz']       = band_MHz
-                    keo_attrs['band_name']      = band_obj.band_dict[band_MHz]['name']
-                    keo_attrs['band_freq_name'] = band_obj.band_dict[band_MHz]['freq_name']
+                    keo_attrs['band_MHz']       = attrs['band_MHz']
+                    keo_attrs['band_name']      = attrs['band_name']
+                    keo_attrs['band_freq_name'] = attrs['band_freq_name']
                     keo_attrs['sTime']          = sDate
                     keo_attrs['xkey']           = xkey
                     keo_attrs['ykey']           = lkey
@@ -610,13 +617,16 @@ class KeoHam(object):
                     ylabel  = '{:0.1f}'.format(lavg)+'$^{\circ}$E'
                 
                 ax.set_ylabel(ylabel)
+                ax.set_xlabel('')
                 ax.set_title('')
 
+    #            ax.set_xlim(sDate,eDate)
+                ax.set_xlim(xlim)
                 if ginx != nrows-1:
                     ax.set_xticklabels([])
-                    ax.set_xlabel('')
                 ax_inx += 1
 
+#            fig.tight_layout()
             fig.text(0.5,0.89,fname,fontdict={'weight':'bold','size':36},ha='center')
 
             fpath       = os.path.join(output_dir,fname)
@@ -634,6 +644,8 @@ class KeoHam(object):
             keo_crds[keo_ykey]      = np.array(keo_y)
         
             keo[lkey]               = xr.DataArray(keo[lkey],keo_crds,attrs=keo_attrs,dims=[keo_xkey,keo_ykey]).sortby(lkey)
+#            da  = keo[lkey]
+#            import ipdb; ipdb.set_trace()
             self.keo                = keo
 
         # Plot keogram
@@ -657,11 +669,11 @@ if __name__ == '__main__':
 #    def __init__(self,lat_lims=(36.,46.,0.5),lon_lims=(-105.,-85.,1.0)):
 
 # Defaults
-    lat_lims=(  36.,   46., 0.5)
-    lon_lims=(-105., -85., 1.0)
+#    lat_lims=(  36.,   46., 0.5)
+#    lon_lims=(-105., -85., 1.0)
 
-#    lat_lims=(  36.,  46., 10./4)
-#    lon_lims=(-105., -85., 20./4)
+    lat_lims=(  36.,  46., 10./4)
+    lon_lims=(-105., -85., 20./4)
 
 #    lat_lims=( 36.,  46., 1.0)
 #    lon_lims=(-90., -70., 2.0)
