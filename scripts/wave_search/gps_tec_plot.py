@@ -144,11 +144,31 @@ class TecPlotter(object):
             dates.append(dates[-1]+tdelta)
 
         for plotDate in dates:
-            self.plot_tec_ax(plotDate,**kwargs)
+            self.plot_tec_fig(plotDate,**kwargs)
 
+    def plot_tec_fig(self,plotDate,fname=None,rr=0,**kwargs):
 
-    def plot_tec_ax(self,plotDate,vx=-0.2,vy=0.2,
-            figs=True, wgec=False,rr=0,zz=10):
+        fig = plt.figure(figsize=(15,7.5))
+        ax  = self.plot_tec_ax(plotDate,fig=fig,rr=rr,**kwargs)
+
+        if fname is None:
+            pref        = self.prefixo
+            dname       = "%s/%s"%(pref,plotDate.strftime('%Y-%m-%dT%H-00-00'))
+            utcstr      = plotDate.strftime('UTC %Y-%m-%d %H:%M:%S')
+            date_str    = plotDate.strftime('%Y%m%d.%H%M.%SUT')
+            print(utcstr)
+            os.system("mkdir -p %s"%(dname))
+            if rr==1:
+                fname = "{!s}/tec_n3plot_{!s}.png".format(dname,date_str)
+            if rr==0:
+                fname = "{!s}/tid_n3plot_{!s}.png".format(dname,date_str)
+
+        fig.savefig(fname,bbox_inches='tight')
+        print('   --> {!s}'.format(fname))
+        plt.close(fig)
+
+    def plot_tec_ax(self,plotDate,fig=None,ax=None,vx=-0.2,vy=0.2,rr=0,zz=10,
+            projection=ccrs.PlateCarree(),maplim_region='World',wgec=False):
         """
         vx      = -0.2          # if f=1, plotting color scale min, default=5
         vy      =  0.2          # if f=1, plotting color scale max, default=50
@@ -165,7 +185,6 @@ class TecPlotter(object):
         ut0                 = self.ut0
         dt                  = self.dt
         tod                 = self.tod
-        prefixo             = self.prefixo
 
         pidx                = np.where( (tod  > dt*inx) & (tod < (dt*inx+dt)) )[0]           # Time of Day Index
         pidx0               = np.where( (tod  > dt*inx-dt/2) & (tod < (dt*inx+dt/2)) )[0]    # Time of Day Index +/- dt/2
@@ -173,7 +192,6 @@ class TecPlotter(object):
         pidus_left          = np.where( (tod  > dt*inx-dt/2) & (tod < (dt*inx+dt/2)) & (abs(tecs[:,2]+ 80)<2.5) & (abs(tecs[:,1]-40)<10))[0]
         pidus_mid           = np.where( (tod  > dt*inx-dt/2) & (tod < (dt*inx+dt/2)) & (abs(tecs[:,2]+ 95)<2.5) & (abs(tecs[:,1]-40)<10))[0]
         pidus_right         = np.where( (tod  > dt*inx-dt/2) & (tod < (dt*inx+dt/2)) & (abs(tecs[:,2]+110)<2.5) & (abs(tecs[:,1]-40)<10))[0] 
-        unixt               = (ut0+inx*dt)    
         gec                 = np.median(tecs[pidx0,4])
         gecus               = np.median(tecs[pidus,4])
         gtidus              = np.median(tecs[pidus,3])
@@ -198,48 +216,31 @@ class TecPlotter(object):
             gfo_mid.write("%d  %1.5f %7.3f %7.3f %9.5f %9.5f  %7.0f %7.0f\n"%(day,inx*dt/3600,gec,gecus_mid,gtidus_mid,gtidus_std_mid,len(pidx0),len(pidus_mid)))
             gfo_right.write("%d  %1.5f %7.3f %7.3f %9.5f %9.5f  %7.0f %7.0f\n"%(day,inx*dt/3600,gec,gecus_right,gtidus_right,gtidus_std_right,len(pidx0),len(pidus_right)))
 
-        if figs:
-            projection      = ccrs.PlateCarree()
-            maplim_region   = 'World'
 
+        if fig is None:
             fig = plt.figure(figsize=(15,7.5))
+
+        if ax is None:
             ax  = fig.add_subplot(1,1,1, projection=projection)
 
-            ax.set_xlim(gl.regions[maplim_region]['lon_lim'])
-            ax.set_ylim(gl.regions[maplim_region]['lat_lim'])
+        ax.set_xlim(gl.regions[maplim_region]['lon_lim'])
+        ax.set_ylim(gl.regions[maplim_region]['lat_lim'])
 
-            ax.coastlines()
-            ax.gridlines(draw_labels=True)
+        ax.coastlines()
+        ax.gridlines(draw_labels=True)
 
-            x, y = tecs[pidx,2],tecs[pidx,1]
-            if rr==1: # TEC
-               mpbl = ax.scatter(x,y,c=tecs[pidx,4],edgecolors='none',vmin=vx,vmax=vy,s=zz,marker='s')
-            if rr==0: # TID
-               mpbl = ax.scatter(x,y,c=tecs[pidx,3],edgecolors='none',vmin=vx,vmax=vy,s=zz)
+        x, y = tecs[pidx,2],tecs[pidx,1]
+        if rr==1: # TEC
+           mpbl = ax.scatter(x,y,c=tecs[pidx,4],edgecolors='none',vmin=vx,vmax=vy,s=zz,marker='s')
+        if rr==0: # TID
+           mpbl = ax.scatter(x,y,c=tecs[pidx,3],edgecolors='none',vmin=vx,vmax=vy,s=zz)
 
-            thisdate        = datetime.datetime.utcfromtimestamp(unixt+0.0*3600)
-            ax.add_feature(Nightshade(thisdate, alpha=0.2))
-    #        CS1             = m.nightshade(thisdate,delta=0.15, alpha=0.25)
-            ax.set_title((datetime.datetime.utcfromtimestamp(unixt).strftime('UTC %Y-%m-%d %H:%M:%S')) )
+        ax.add_feature(Nightshade(plotDate, alpha=0.2))
+        ax.set_title(plotDate.strftime('UTC %Y-%m-%d %H:%M:%S'))
 
-    #        import ipdb; ipdb.set_trace()
-            cbar = plt.colorbar(mpbl,shrink=0.8,pad=0.075)
-            cbar.set_label('$\Delta$TECu',size='medium')
-            cbar.ax.tick_params(labelsize='medium')
-
-            pref=prefixo
-            dname="%s/%s"%(pref,datetime.datetime.utcfromtimestamp(unixt).strftime('%Y-%m-%dT%H-00-00'))
-            utcstr=datetime.datetime.utcfromtimestamp(unixt).strftime('UTC %Y-%m-%d %H:%M:%S')
-            print(utcstr)
-            os.system("mkdir -p %s"%(dname))
-    #        fig.tight_layout()
-            if rr==1:
-                fname = "%s/tec_n3plot@%d.png"%(dname,unixt)
-            if rr==0:
-                fname = "%s/tid_n3plot@%d.png"%(dname,unixt)
-            fig.savefig(fname,bbox_inches='tight')
-            print('   --> {!s}'.format(fname))
-            plt.close(fig)
+        cbar = plt.colorbar(mpbl,shrink=0.8,pad=0.075)
+        cbar.set_label('$\Delta$TECu',size='medium')
+        cbar.ax.tick_params(labelsize='medium')
 
 
 if __name__ == '__main__':
