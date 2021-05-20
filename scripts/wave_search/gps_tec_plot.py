@@ -125,9 +125,10 @@ class TecPlotter(object):
         inx = int(td.total_seconds()/self.dt)
         return inx
 
-    def plot_day(self,sDate=None,eDate=None,tdelta=None,**kwargs):
+    def get_dates(self,sDate=None,eDate=None,tdelta=None):
         """
-        Plots entire day of TEC data.
+        Get available dates of TEC data within a range.
+
         sDate:  datetime.datetime start time (defaults to self.date)
         eDate:  datetime.datetime end time (defaults to self.date+datetime.datetime(hours=24)
         tdelta: datetime.timedelta (defaults to datetime.timedelta(seconds=self.dt)
@@ -143,6 +144,17 @@ class TecPlotter(object):
         while dates[-1] < eDate:
             dates.append(dates[-1]+tdelta)
 
+        return dates
+
+    def plot_day(self,sDate=None,eDate=None,tdelta=None,**kwargs):
+        """
+        Plots entire day of TEC data.
+        sDate:  datetime.datetime start time (defaults to self.date)
+        eDate:  datetime.datetime end time (defaults to self.date+datetime.datetime(hours=24)
+        tdelta: datetime.timedelta (defaults to datetime.timedelta(seconds=self.dt)
+        """
+
+        dates   = self.get_dates(sDate=sDate,eDate=eDate,tdelta=tdelta)
         for plotDate in dates:
             self.plot_tec_fig(plotDate,**kwargs)
 
@@ -167,8 +179,9 @@ class TecPlotter(object):
         print('   --> {!s}'.format(fname))
         plt.close(fig)
 
-    def plot_tec_ax(self,plotDate,fig=None,ax=None,vx=-0.2,vy=0.2,rr=0,zz=10,
-            projection=ccrs.PlateCarree(),maplim_region='World',wgec=False):
+    def plot_tec_ax(self,plotDate,fig=None,ax=None,vx=-0.2,vy=0.2,rr=0,zz=10,cmap='jet',
+            projection=ccrs.PlateCarree(),maplim_region='World',cax=None,wgec=False,
+            title=None):
         """
         vx      = -0.2          # if f=1, plotting color scale min, default=5
         vy      =  0.2          # if f=1, plotting color scale max, default=50
@@ -222,6 +235,7 @@ class TecPlotter(object):
 
         if ax is None:
             ax  = fig.add_subplot(1,1,1, projection=projection)
+        plt.sca(ax)
 
         ax.set_xlim(gl.regions[maplim_region]['lon_lim'])
         ax.set_ylim(gl.regions[maplim_region]['lat_lim'])
@@ -231,16 +245,22 @@ class TecPlotter(object):
 
         x, y = tecs[pidx,2],tecs[pidx,1]
         if rr==1: # TEC
-           mpbl = ax.scatter(x,y,c=tecs[pidx,4],edgecolors='none',vmin=vx,vmax=vy,s=zz,marker='s')
+           mpbl = ax.scatter(x,y,c=tecs[pidx,4],edgecolors='none',vmin=vx,vmax=vy,s=zz,marker='s',cmap=cmap)
         if rr==0: # TID
-           mpbl = ax.scatter(x,y,c=tecs[pidx,3],edgecolors='none',vmin=vx,vmax=vy,s=zz)
+           mpbl = ax.scatter(x,y,c=tecs[pidx,3],edgecolors='none',vmin=vx,vmax=vy,s=zz,cmap=cmap)
 
         ax.add_feature(Nightshade(plotDate, alpha=0.2))
-        ax.set_title(plotDate.strftime('UTC %Y-%m-%d %H:%M:%S'))
 
-        cbar = plt.colorbar(mpbl,shrink=0.8,pad=0.075)
-        cbar.set_label('$\Delta$TECu',size='medium')
-        cbar.ax.tick_params(labelsize='medium')
+        if title is None:
+            ax.set_title(plotDate.strftime('UTC %Y-%m-%d %H:%M:%S'))
+        elif title is not False:
+            ax.set_title(title)
+
+        cbar = plt.colorbar(mpbl,shrink=0.8,pad=0.075,cax=cax)
+        cbar.set_label('$\Delta$TECu')#,size='medium')
+#        cbar.ax.tick_params(labelsize='medium')
+
+        return {'ax':ax,'cbar':cbar}
 
 
 if __name__ == '__main__':

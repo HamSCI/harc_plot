@@ -32,6 +32,8 @@ from harc_plot import geopack
 import pydarnio
 import pydarn
 
+import gps_tec_plot
+
 
 # Create a 'view' list to quickly see frequencyly used columns.
 v = []
@@ -251,9 +253,9 @@ class KeoHam(object):
         gl.prep_output({0:png_dir},clear=True)
         self.run_dct['png_dir'] = png_dir
 
-        gps_dates = [sDate]
-        while gps_dates[-1] < eDate:
-            gps_dates.append(gps_dates[-1] + datetime.timedelta(minutes=5))
+        # Load TEC Data
+        self.tec_obj    = gps_tec_plot.TecPlotter(sDate)
+        gps_dates       = self.tec_obj.get_dates(sDate,eDate)
 
         for gps_date in gps_dates:
             print(gps_date)
@@ -354,6 +356,7 @@ class KeoHam(object):
         rgc_lim             = rd['rgc_lim']
         xkey                = rd['xkey']
         plot_summary_line   = rd.get('plot_summary_line',True)
+        filter_region       = rd.get('filter_region','World')
 
         df                  = self.df
 
@@ -370,6 +373,16 @@ class KeoHam(object):
         ax      = fig.add_subplot(3,1,1)
         ax_01   = ax
         result  = self.time_series_ax(df,ax,vmax=None,log_z=True)
+
+        cbar        = result['cbar']
+        cax        = cbar.ax
+        cax_pos    = list(cax.get_position().bounds)
+
+        cax_pos[0] = 0.750 # X0
+        cax_pos[1] = 0.654 # Y0
+        cax_pos[2] = 0.150 # Width
+        cax_pos[3] = 0.226 # Height
+        cax.set_position(cax_pos)
         
 
         gps_hr  = gps_date.hour + gps_date.minute/60. + gps_date.second/3600.
@@ -381,48 +394,44 @@ class KeoHam(object):
             ax.set_yticks(yticks)
 
         ax.set_xlabel('')
-        ax.set_ylabel('Great Circle Range [km]')
+        ax.set_ylabel('Great Circle\nRange [km]')
         ax.set_title('{!s} MHz RBN, PSKReporter, and WSPRNet'.format(rd['band_MHz']))
+
+        dfmt    = '%Y %b %d %H%M UT'
+        title   = '{!s} -\n{!s}'.format(sDate.strftime(dfmt), eDate.strftime(dfmt))
+        ax.set_title(title,loc='left',fontsize='medium')
 
         ################################################################################
         # Plot GPS TEC Map #############################################################
-        ax      = fig.add_subplot(3,1,(2,3),projection=ccrs.PlateCarree())
-        ax.set_title(str(gps_date))
-        ax_02   = ax
+        cax         = fig.add_subplot(444)
+        ax          = fig.add_subplot(3,1,(2,3),projection=ccrs.PlateCarree())
+        tec_plot    = self.tec_obj.plot_tec_ax(gps_date,zz=20,title=False,
+                        ax=ax,maplim_region=filter_region,cax=cax)
 
-        self.map_ax_tec(ax)
+        ax_pos      = list(ax.get_position().bounds)
+        ax_pos[0]   = 0.125 # X0
+        ax_pos[1]   = 0.00  # Y0
+        ax_pos[2]   = 0.59  # Width
+        ax_pos[3]   = 0.59  # Height
+        ax.set_position(ax_pos)
 
-#        ax_0_pos    = list(ax_0.get_position().bounds)
-#        ax_1_pos    = list(ax_1.get_position().bounds)
-#        ax_0_pos[0] = ax_1_pos[0]
-#        ax_0_pos[2] = ax_1_pos[2]
-#        ax_0.set_position(ax_0_pos)
+        cbar        = tec_plot['cbar']
+        cax        = cbar.ax
+        cax_pos    = list(cax.get_position().bounds)
+        cax_pos[0] = 0.750 # X0
+        cax_pos[1] = 0.000 # Y0
+        cax_pos[2] = 0.0225 # Width
+        cax_pos[3] = 0.590 # Height
+        cax.set_position(cax_pos)
 
         dfmt    = '%Y %b %d %H%M UT'
-        title   = '{!s} - {!s}'.format(sDate.strftime(dfmt), eDate.strftime(dfmt))
-        fig.text(0.5,0.95,title,fontdict={'weight':'bold','size':24},ha='center')
+#        title   = '{!s} - {!s}'.format(sDate.strftime(dfmt), eDate.strftime(dfmt))
+        title   = '{!s}'.format(gps_date.strftime(dfmt))
+        fig.text(0.425,0.93,title,fontdict={'weight':'bold','size':24},ha='center')
 
         fpath       = os.path.join(png_dir,fname)
         fig.savefig(fpath,bbox_inches='tight')
         plt.close(fig)
-
-    def map_ax_tec(self,ax):
-        rd                  = self.run_dct
-        sDate               = rd['sDate']
-        filter_region       = rd.get('filter_region','World')
-
-#        ax.coastlines(zorder=10,color='k')
-#        ax.add_feature(cartopy.feature.LAND)
-#        ax.add_feature(cartopy.feature.OCEAN)
-        ax.add_feature(cartopy.feature.COASTLINE)
-        ax.add_feature(cartopy.feature.BORDERS, linestyle=':')
-#        ax.add_feature(cartopy.feature.LAKES, alpha=0.5)
-#        ax.add_feature(cartopy.feature.RIVERS)
-        ax.set_title('')
-
-        plot_rgn    = gl.regions.get(filter_region)
-        ax.set_xlim(plot_rgn.get('lon_lim'))
-        ax.set_ylim(plot_rgn.get('lat_lim'))
 
     def map_ax(self,df,ax):
         rd                  = self.run_dct
@@ -499,7 +508,8 @@ class KeoHam(object):
             data.name   = 'log({})'.format(data.name)
 
         # Plot th1e Pcolormesh
-        result      = data.plot.pcolormesh(x=xkey,y='dist_Km',ax=ax,vmin=0,vmax=vmax,cbar_kwargs={'pad':0.08})
+        result      = data.plot.pcolormesh(x=xkey,y='dist_Km',ax=ax,vmin=0,vmax=vmax,
+                cbar_kwargs={'aspect':5,'pad':0.08})
 
         # Calculate Derived Line
         sum_cnts    = data.sum('dist_Km').data
@@ -513,7 +523,7 @@ class KeoHam(object):
 
         ax.set_xlim(xlim)
 
-        return {'data':data,'avg_dist':avg_dist}
+        return {'data':data,'avg_dist':avg_dist,'cbar':result.colorbar}
 
 
 if __name__ == '__main__':
@@ -521,11 +531,11 @@ if __name__ == '__main__':
     gl.prep_output({0:output_dir},clear=False,php=False)
 
     rd  = {}
-#    rd['sDate']                 = datetime.datetime(2017,11,3,12)
-#    rd['eDate']                 = datetime.datetime(2017,11,4)
+    rd['sDate']                 = datetime.datetime(2017,11,3,12)
+    rd['eDate']                 = datetime.datetime(2017,11,4)
 
-    rd['sDate']                 = datetime.datetime(2017,5,16,12)
-    rd['eDate']                 = datetime.datetime(2017,5,17)
+#    rd['sDate']                 = datetime.datetime(2017,5,16,12)
+#    rd['eDate']                 = datetime.datetime(2017,5,17)
 
     rd['rgc_lim']               = (0.,3000)
     rd['data_sources']          = [1,2,3]
