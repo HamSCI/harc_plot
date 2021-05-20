@@ -231,7 +231,7 @@ class TecPlotter(object):
 
 
         if fig is None:
-            fig = plt.figure(figsize=(15,7.5))
+            fig = ax.get_figure()
 
         if ax is None:
             ax  = fig.add_subplot(1,1,1, projection=projection)
