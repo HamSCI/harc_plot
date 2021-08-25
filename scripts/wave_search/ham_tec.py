@@ -372,9 +372,12 @@ class KeoHam(object):
         # Plot Time Series ############################################################# 
         ax      = fig.add_subplot(3,1,1)
         ax_01   = ax
-        result  = self.time_series_ax(df,ax,vmax=None,log_z=True)
 
-        cbar        = result['cbar']
+        log_z   = False
+        vmax    = 40
+        result  = self.time_series_ax(df,ax,vmax=vmax,log_z=log_z)
+
+        cbar       = result['cbar']
         cax        = cbar.ax
         cax_pos    = list(cax.get_position().bounds)
 
@@ -510,6 +513,9 @@ class KeoHam(object):
         # Plot th1e Pcolormesh
         result      = data.plot.pcolormesh(x=xkey,y='dist_Km',ax=ax,vmin=0,vmax=vmax,
                 cbar_kwargs={'aspect':5,'pad':0.08})
+
+        title   = 'Bin Size:\n{!s} min x {!s} km'.format(rd['xb_size_min'],rd['yb_size_km'])
+        ax.set_title(title,loc='right',fontsize='medium')
 
         # Calculate Derived Line
         sum_cnts    = data.sum('dist_Km').data
