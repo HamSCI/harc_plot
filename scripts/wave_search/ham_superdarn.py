@@ -336,6 +336,8 @@ class KeoHam(object):
         yticks              = rd['yticks']
         rgc_lim             = rd['rgc_lim']
         xkey                = rd['xkey']
+        ham_vmax            = rd.get('ham_vmax',None)
+        ham_log_z           = rd.get('ham_log_z',False)
         plot_summary_line   = rd.get('plot_summary_line',True)
 
         df                  = self.df
@@ -368,7 +370,11 @@ class KeoHam(object):
         # Plot Time Series ############################################################# 
         ax      = plt.subplot2grid((nrows,ncols),(0,col_1),colspan=col_1_span)
         ax_01   = ax
-        result  = self.time_series_ax(df,ax,vmax=None,log_z=True)
+        result  = self.time_series_ax(df,ax,vmax=ham_vmax,log_z=ham_log_z)
+
+        ham_cbar        = result['cbar']
+        ham_cax         = ham_cbar.ax
+        ham_cax_pos     = list(ham_cax.get_position().bounds)
 
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
@@ -398,7 +404,11 @@ class KeoHam(object):
         # Plot SuperDARN Time Series ################################################### 
         ax      = plt.subplot2grid((nrows,ncols),(1,col_1),colspan=col_1_span)
         ax_11   = ax
-        pydarn.RTP.plot_range_time(fitacf, beam_num=beam, parameter='p_l', zmax=50, zmin=0, date_fmt='%H', colorbar_label='Power (dB)', cmap='viridis',ax=ax)
+        result  = pydarn.RTP.plot_range_time(fitacf, beam_num=beam, parameter='p_l', zmax=50, zmin=0, date_fmt='%H', colorbar_label='Power (dB)', cmap='viridis',ax=ax)
+        sd_cbar = result[1]
+        sd_cax  = sd_cbar.ax
+        sd_cax_pos      = list(sd_cax.get_position().bounds)
+
         ax.set_ylabel('Slant Range [km]')
         ax.set_ylim(ylim)
         if yticks is not None:
@@ -583,6 +593,9 @@ class KeoHam(object):
         # Plot th1e Pcolormesh
         result      = data.plot.pcolormesh(x=xkey,y='dist_Km',ax=ax,vmin=0,vmax=vmax,cbar_kwargs={'pad':0.08})
 
+        title   = 'Bin Size:\n{!s} min x {!s} km'.format(rd['xb_size_min'],rd['yb_size_km'])
+        ax.set_title(title,loc='right',fontsize='large')
+
         # Calculate Derived Line
         sum_cnts    = data.sum('dist_Km').data
         avg_dist    = (data.dist_Km.data @ data.data.T) / sum_cnts
@@ -595,7 +608,7 @@ class KeoHam(object):
 
         ax.set_xlim(xlim)
 
-        return {'data':data,'avg_dist':avg_dist}
+        return {'data':data,'avg_dist':avg_dist,'cbar':result.colorbar}
 
 
 if __name__ == '__main__':
@@ -632,6 +645,9 @@ if __name__ == '__main__':
 #    rd['yticks']                = np.arange(0,3500,500)
     rd['ylim']                  = (500.,2500.)
     rd['yticks']                = np.arange(500,3000,500)
+
+    rd['ham_log_z']             = False
+    rd['ham_vmax']              = 30.
 
     keo_ham = KeoHam(rd)
     import ipdb; ipdb.set_trace()
