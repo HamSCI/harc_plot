@@ -66,7 +66,8 @@ def set_backgroundcolor(ax, color):
         lh.legendPatch.set_facecolor(color)
 
 class TecPlotter(object):
-    def __init__(self,date,ww=241,ee=30,nn=1,dt=60.,wgec=False,
+#    def __init__(self,date,ww=241,ee=30,nn=1,dt=60.,wgec=False,
+    def __init__(self,date,ww=121,ee=15,nn=1,dt=60.,wgec=False,
             prefix  = 'data/gps_tec_haystack', prefixb = 'output-gpsTec'):
         """
         ww      = 241           # Set window length in 15 second steps - must be odd - default is 241 (or 1 hour)
