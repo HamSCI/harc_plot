@@ -66,8 +66,8 @@ def set_backgroundcolor(ax, color):
         lh.legendPatch.set_facecolor(color)
 
 class TecPlotter(object):
-#    def __init__(self,date,ww=241,ee=30,nn=1,dt=60.,wgec=False,
-    def __init__(self,date,ww=121,ee=15,nn=1,dt=60.,wgec=False,
+    def __init__(self,date,ww=241,ee=30,nn=1,dt=60.,wgec=False,
+#    def __init__(self,date,ww=121,ee=15,nn=1,dt=60.,wgec=False,
             prefix  = 'data/gps_tec_haystack', prefixb = 'output-gpsTec'):
         """
         ww      = 241           # Set window length in 15 second steps - must be odd - default is 241 (or 1 hour)
@@ -182,7 +182,7 @@ class TecPlotter(object):
 
     def plot_tec_ax(self,plotDate,fig=None,ax=None,vx=-0.2,vy=0.2,rr=0,zz=10,cmap='jet',
             projection=ccrs.PlateCarree(),maplim_region='World',cax=None,wgec=False,
-            title=None):
+            title=None,top_labels=True,bottom_labels=True,right_labels=True,left_labels=True):
         """
         vx      = -0.2          # if f=1, plotting color scale min, default=5
         vy      =  0.2          # if f=1, plotting color scale max, default=50
@@ -242,7 +242,11 @@ class TecPlotter(object):
         ax.set_ylim(gl.regions[maplim_region]['lat_lim'])
 
         ax.coastlines()
-        ax.gridlines(draw_labels=True)
+        grd = ax.gridlines()
+        grd.bottom_labels   = bottom_labels
+        grd.top_labels      = top_labels
+        grd.left_labels     = left_labels
+        grd.right_labels    = right_labels
 
         x, y = tecs[pidx,2],tecs[pidx,1]
         if rr==1: # TEC
