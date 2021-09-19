@@ -345,7 +345,7 @@ class KeoHam(object):
         sDate_str   = sDate.strftime('%Y%m%d.%H%M')
         eDate_str   = eDate.strftime('%Y%m%d.%H%M')
         date_str    = '{!s}-{!s}'.format(sDate_str,eDate_str)
-        fname       = '{!s}_timeseries.png'.format(date_str)
+        fname       = '{!s}_ham_superdarn.png'.format(date_str)
 
         fig     = plt.figure(figsize=(35,10))
         col_0       = 0
@@ -612,18 +612,18 @@ class KeoHam(object):
 
 
 if __name__ == '__main__':
-    output_dir  = os.path.join('output/swo2r')
+    output_dir  = os.path.join('output/ham_superdarn')
     gl.prep_output({0:output_dir},clear=False,php=False)
 
     lat_lims=(  36.,  46., 10./4)
     lon_lims=(-105., -85., 20./4)
 
     rd  = {}
-#    rd['sDate']                 = datetime.datetime(2017,11,3,12)
-#    rd['eDate']                 = datetime.datetime(2017,11,4)
+    rd['sDate']                 = datetime.datetime(2017,11,3,12)
+    rd['eDate']                 = datetime.datetime(2017,11,4)
 
-    rd['sDate']                 = datetime.datetime(2017,5,16,12)
-    rd['eDate']                 = datetime.datetime(2017,5,17)
+#    rd['sDate']                 = datetime.datetime(2017,5,16,12)
+#    rd['eDate']                 = datetime.datetime(2017,5,17)
 
     rd['rgc_lim']               = (0.,3000)
     rd['data_sources']          = [1,2,3]
