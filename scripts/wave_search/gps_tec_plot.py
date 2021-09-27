@@ -261,11 +261,83 @@ class TecPlotter(object):
         elif title is not False:
             ax.set_title(title)
 
-        cbar = plt.colorbar(mpbl,shrink=0.8,pad=0.075,cax=cax)
+        cbar = plt.colorbar(mpbl,shrink=0.8,pad=0.075,cax=cax,extend='both')
         cbar.set_label('$\Delta$TECu')#,size='medium')
 #        cbar.ax.tick_params(labelsize='medium')
 
         return {'ax':ax,'cbar':cbar}
+
+    def get_tec_vals(self,plotDate,wgec=False):
+        """
+        wgec    = False         # generate a data output file for global and US regional mean TEC (0=no 1=yes), default=0
+        """
+
+        inx                 = self.date2inx(plotDate)
+
+        tecs                = self.tecs
+        day                 = self.day
+        ut0                 = self.ut0
+        dt                  = self.dt
+        tod                 = self.tod
+
+        pidx                = np.where( (tod  > dt*inx) & (tod < (dt*inx+dt)) )[0]           # Time of Day Index
+        pidx0               = np.where( (tod  > dt*inx-dt/2) & (tod < (dt*inx+dt/2)) )[0]    # Time of Day Index +/- dt/2
+        pidus               = np.where( (tod  > dt*inx-dt/2) & (tod < (dt*inx+dt/2)) & (abs(tecs[:,2]+ 95)<25)  & (abs(tecs[:,1]-40)<10))[0]
+        pidus_left          = np.where( (tod  > dt*inx-dt/2) & (tod < (dt*inx+dt/2)) & (abs(tecs[:,2]+ 80)<2.5) & (abs(tecs[:,1]-40)<10))[0]
+        pidus_mid           = np.where( (tod  > dt*inx-dt/2) & (tod < (dt*inx+dt/2)) & (abs(tecs[:,2]+ 95)<2.5) & (abs(tecs[:,1]-40)<10))[0]
+        pidus_right         = np.where( (tod  > dt*inx-dt/2) & (tod < (dt*inx+dt/2)) & (abs(tecs[:,2]+110)<2.5) & (abs(tecs[:,1]-40)<10))[0] 
+
+        gec                 = np.median(tecs[pidx0,4])
+        gecus               = np.median(tecs[pidus,4])
+        gtidus              = np.median(tecs[pidus,3])
+        gecus_std           = np.std(tecs[pidus,4])
+        gtidus_std          = np.std(tecs[pidus,3])
+        gecus_mid           = np.median(tecs[pidus_mid,4])
+        gtidus_mid          = np.median(tecs[pidus_mid,3])
+        gecus_std_mid       = np.std(tecs[pidus_mid,4])
+        gtidus_std_mid      = np.std(tecs[pidus_mid,3])
+        gecus_left          = np.median(tecs[pidus_left,4])
+        gtidus_left         = np.median(tecs[pidus_left,3])
+        gecus_std_left      = np.std(tecs[pidus_left,4])
+        gtidus_std_left     = np.std(tecs[pidus_left,3])
+        gecus_right         = np.median(tecs[pidus_right,4])
+        gtidus_right        = np.median(tecs[pidus_right,3])
+        gecus_std_right     = np.std(tecs[pidus_right,4])
+        gtidus_std_right    = np.std(tecs[pidus_right,3]) 
+
+        if wgec:
+            gfo.write("%d  %1.5f %7.3f %7.3f %9.5f %9.5f  %7.0f %7.0f\n"%(day,inx*dt/3600,gec,gecus,gtidus,gtidus_std,len(pidx0),len(pidus)))
+            gfo_left.write("%d  %1.5f %7.3f %7.3f %9.5f %9.5f  %7.0f %7.0f\n"%(day,inx*dt/3600,gec,gecus_left,gtidus_left,gtidus_std_left,len(pidx0),len(pidus_left)))
+            gfo_mid.write("%d  %1.5f %7.3f %7.3f %9.5f %9.5f  %7.0f %7.0f\n"%(day,inx*dt/3600,gec,gecus_mid,gtidus_mid,gtidus_std_mid,len(pidx0),len(pidus_mid)))
+            gfo_right.write("%d  %1.5f %7.3f %7.3f %9.5f %9.5f  %7.0f %7.0f\n"%(day,inx*dt/3600,gec,gecus_right,gtidus_right,gtidus_std_right,len(pidx0),len(pidus_right)))
+
+        ret_dct = {}
+        ret_dct['pidx']               = pidx            
+        ret_dct['pidx0']              = pidx0           
+        ret_dct['pidus']              = pidus           
+        ret_dct['pidus_left']         = pidus_left      
+        ret_dct['pidus_mid']          = pidus_mid       
+        ret_dct['pidus_right']        = pidus_right     
+
+        ret_dct['gec']                = gec             
+        ret_dct['gecus']              = gecus           
+        ret_dct['gtidus']             = gtidus          
+        ret_dct['gecus_std']          = gecus_std       
+        ret_dct['gtidus_std']         = gtidus_std      
+        ret_dct['gecus_mid']          = gecus_mid       
+        ret_dct['gtidus_mid']         = gtidus_mid      
+        ret_dct['gecus_std_mid']      = gecus_std_mid   
+        ret_dct['gtidus_std_mid']     = gtidus_std_mid  
+        ret_dct['gecus_left']         = gecus_left      
+        ret_dct['gtidus_left']        = gtidus_left     
+        ret_dct['gecus_std_left']     = gecus_std_left  
+        ret_dct['gtidus_std_left']    = gtidus_std_left 
+        ret_dct['gecus_right']        = gecus_right     
+        ret_dct['gtidus_right']       = gtidus_right    
+        ret_dct['gecus_std_right']    = gecus_std_right 
+        ret_dct['gtidus_std_right']   = gtidus_std_right
+
+        return ret_dct
 
 
 if __name__ == '__main__':

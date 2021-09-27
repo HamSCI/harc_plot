@@ -11,6 +11,8 @@ import itertools
 import glob
 import bz2
 import tqdm
+import pickle
+from multiprocessing import Pool
 
 import numpy as np
 import pandas as pd
@@ -356,6 +358,7 @@ class KeoHam(object):
         plot_summary_line   = rd.get('plot_summary_line',True)
         filter_region       = rd.get('filter_region','World')
         frames              = rd.get('frames')
+        plot_tec_ts         = rd.get('plot_tec_ts',True)
 
         df                  = self.df
 
@@ -382,11 +385,13 @@ class KeoHam(object):
         cax_pos    = list(cax.get_position().bounds)
 
         cax_pos[0] = 0.750 # X0
+        if plot_tec_ts:
+            cax_pos[0] = 0.780 # X0
         cax_pos[1] = 0.654 # Y0
         cax_pos[2] = 0.150 # Width
         cax_pos[3] = 0.226 # Height
         cax.set_position(cax_pos)
-        
+
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
         if yticks is not None:
@@ -399,6 +404,58 @@ class KeoHam(object):
         dfmt    = '%Y %b %d'
         title   = '{!s} -\n{!s}'.format(sDate.strftime(dfmt), eDate.strftime(dfmt))
         ax.set_title(title,loc='left',fontsize='medium')
+
+        if plot_tec_ts:
+            tec_ts_path = os.path.join(output_dir,fname+'-tec_ts.p')
+            if not os.path.exists(tec_ts_path):
+                # Calculate GPS Time Series
+                gps_dates   = np.array(self.tec_obj.get_dates())
+                gps_hours   = np.array([x.hour + x.minute/60. + x.second/3600. for x in gps_dates])
+                tf          = np.logical_and(gps_hours >= xlim[0], gps_hours < xlim[1])
+                gps_hours   = gps_hours[tf]
+                gps_dates   = gps_dates[tf]
+
+                ret_dcts    = []
+                for gps_date in tqdm.tqdm(gps_dates,desc='Calculating GPS Statistics',dynamic_ncols=True):
+                    tqdm.tqdm.write(str(gps_date))
+                    ret_dct = self.tec_obj.get_tec_vals(gps_date)
+                    ret_dcts.append(ret_dct)
+
+#                print('Calculating GPS Statistics...')
+#                with Pool(6) as p:
+#                    ret_dcts = p.map(self.tec_obj.get_tec_vals,gps_dates)
+
+                tec_ts  = []
+                for gps_date,gps_hour,ret_dct in zip(gps_dates,gps_hours,ret_dcts):
+                    tmp = {}
+                    tmp['gps_date']     = gps_date
+                    tmp['gps_hour']     = gps_hour
+                    tmp['gtidus_mid']   = ret_dct['gtidus_mid']
+                    tmp['gtidus_std']   = ret_dct['gtidus_std']
+                    tec_ts.append(tmp)
+
+                with open(tec_ts_path,'wb') as fl:
+                    pickle.dump(tec_ts,fl)
+
+            else:
+                print('Using cached GPS Time Series Data: {!s}'.format(tec_ts_path))
+                with open(tec_ts_path,'rb') as fl:
+                    tec_ts = pickle.load(fl)
+
+            gps_dates   = []
+            gps_hours   = []
+            gtidus_mid  = []
+            gtidus_std  = []
+            for ret_dct in tec_ts:
+                gps_dates.append(ret_dct['gps_date'])
+                gps_hours.append(ret_dct['gps_hour'])
+                gtidus_mid.append(ret_dct['gtidus_mid'])
+                gtidus_std.append(ret_dct['gtidus_std'])
+
+            axt = ax.twinx()
+            axt.plot(gps_hours,gtidus_mid,lw=2,color='w',zorder=1500)
+            axt.set_ylabel('Median $\Delta$TECu')
+            axt.set_ylim(-0.2,0.2)
 
         ################################################################################
         # Plot GPS TEC Map #############################################################
@@ -454,7 +511,7 @@ class KeoHam(object):
             cax_pos[3] = 0.590 # Height
             cax.set_position(cax_pos)
 
-        dfmt    = '%Y %b %d %H%M UT'
+        dfmt    = '%Y %b %d'
 #        title   = '{!s} - {!s}'.format(sDate.strftime(dfmt), eDate.strftime(dfmt))
         title   = '{!s}'.format(gps_date.strftime(dfmt))
         fig.text(0.425,0.93,title,fontdict={'weight':'bold','size':24},ha='center')
