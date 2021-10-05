@@ -37,6 +37,7 @@ rd['reprocess']             = False
 rd['output_dir']            = data_dir
 rd['band_obj']              = harc_plot.gl.BandData()
 harc_plot.calculate_histograms.main(rd)
+import ipdb; ipdb.set_trace()
 
 ## Calculate Wave Spectra from Histograms #######################################
 #rd = {}
@@ -44,7 +45,7 @@ harc_plot.calculate_histograms.main(rd)
 #rd['params']                = params
 #rd['xkeys']                 = xkeys
 #harc_plot.waves_histograms.main(rd)
-#
+
 
 # Visualization ################################################################
 ### Visualize Observations

@@ -358,7 +358,7 @@ class KeoHam(object):
         plot_summary_line   = rd.get('plot_summary_line',True)
         filter_region       = rd.get('filter_region','World')
         frames              = rd.get('frames')
-        plot_tec_ts         = rd.get('plot_tec_ts',True)
+        plot_tec_ts         = rd.get('plot_tec_ts',False)
 
         df                  = self.df
 
@@ -601,15 +601,24 @@ class KeoHam(object):
         title   = 'Bin Size:\n{!s} min x {!s} km'.format(rd['xb_size_min'],rd['yb_size_km'])
         ax.set_title(title,loc='right',fontsize='medium')
 
+        yrgn    = (750,1750)
+        data_0  = data.sel(dist_Km=slice(*yrgn))
+        data_1  = data_0['dist_Km']*data_0
+        data_2  = data_1.sum('dist_Km').values
+        data_2  = pd.Series(data_2).rolling(8).median().values
+        data_2[np.logical_not(np.isfinite(data_2))] = 0
+
         # Calculate Derived Line
         sum_cnts    = data.sum('dist_Km').data
         avg_dist    = (data.dist_Km.data @ data.data.T) / sum_cnts
 
         if plot_summary_line:
+#        if True:
             ax2     = ax.twinx()
-            ax2.plot(data.ut_hrs,avg_dist,lw=2,color='w')
-            ax2.set_ylim(0,3000)
-            ax2.set_ylabel('Avg Dist\n[km]')
+#            ax2.plot(data.ut_hrs,avg_dist,lw=2,color='r')
+            ax2.plot(data.ut_hrs,data_2,lw=2,color='r')
+#            ax2.set_ylim(0,3000)
+#            ax2.set_ylabel('Avg Dist\n[km]')
 
         ax.set_xlim(xlim)
 
