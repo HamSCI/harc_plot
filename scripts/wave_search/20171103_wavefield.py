@@ -498,8 +498,15 @@ class KeoHam(object):
             data        = xr.where(tf,0,data)
             data.name   = 'log({})'.format(data.name)
 
+        vmin = 0
+        vmax = 5
+#        vmax = None
         # Plot the Pcolormesh
-        result      = data.plot.pcolormesh(x=xkey,y='dist_Km',ax=ax,vmin=0,vmax=vmax,cbar_kwargs={'pad':0.08})
+#        result      = data.plot.pcolormesh(x=xkey,y='dist_Km',ax=ax,vmin=vmin,vmax=vmax,cbar_kwargs={'pad':0.08})a
+#        result      = data.plot.contour(x=xkey,y='dist_Km',ax=ax,vmin=vmin,vmax=vmax,levels=5,zorder=1000)
+        result      = data.plot.contourf(x=xkey,y='dist_Km',ax=ax,vmin=vmin,vmax=vmax,cbar_kwargs={'pad':0.08},levels=5)
+
+        ax.set_ylim(750,1750)
 
         # Calculate Derived Line
         sum_cnts    = data.sum('dist_Km').data
@@ -643,6 +650,7 @@ class KeoHam(object):
 
             this_keo    = keo[lkey]
             result      = this_keo.plot.pcolormesh(x=xkey,y=lkey,ax=ax)
+#            result      = this_keo.plot.contourf(x=xkey,y=lkey,ax=ax)
             ax.set_xlim(xlim)
 
         fig.tight_layout()
@@ -657,22 +665,24 @@ if __name__ == '__main__':
 #    def __init__(self,lat_lims=(36.,46.,0.5),lon_lims=(-105.,-85.,1.0)):
 
 # Defaults
-    lat_lims=(  36.,   46., 0.5)
-    lon_lims=(-105., -85., 1.0)
+#    lat_lims=(  36.,   46., 0.5)
+#    lon_lims=(-105., -85., 1.0)
 
 #    lat_lims=(  36.,  46., 10./4)
 #    lon_lims=(-105., -85., 20./4)
 
-#    lat_lims=( 36.,  46., 1.0)
-#    lon_lims=(-90., -70., 2.0)
+    lat_lims=( 36.,  46., 1.0)
+    lon_lims=(-90., -70., 2.0)
     keo_grid    = KeoGrid(lat_lims=lat_lims,lon_lims=lon_lims)
 #    keo_grid    = KeoGrid()
     keo_grid.plot_maps(output_dir=output_dir)
 
     rd  = {}
     rd['sDate']                 = datetime.datetime(2017,11,3,12)
-    rd['eDate']                 = datetime.datetime(2017,11,4)
+    rd['eDate']                 = datetime.datetime(2017,11,3,18)
+#    rd['eDate']                 = datetime.datetime(2017,11,4)
     rd['rgc_lim']               = (0.,3000)
+    rd['xlim']                  = (12,18)
     rd['data_sources']          = [1,2,3]
 #    rd['data_sources']          = [1,2]
     rd['reprocess_raw_data']    = False
