@@ -145,9 +145,9 @@ class KeoGrid(object):
         ax.set_xlim(gl.regions[maplim_region]['lon_lim'])
         ax.set_ylim(gl.regions[maplim_region]['lat_lim'])
 
-        ax.coastlines()
+        ax.coastlines(lw=2)
         ax.gridlines(draw_labels=True)
-        ax.add_feature(cartopy.feature.BORDERS)
+        ax.add_feature(cartopy.feature.BORDERS,lw=2)
 
         for ginx,rgn in enumerate(grid):
             x0  = rgn['lon_lim'][0]
@@ -712,12 +712,39 @@ if __name__ == '__main__':
 #    lat_lims=(  36.,  46., 10./4)
 #    lon_lims=(-105., -85., 20./4)
 
-#    lat_lims=( 36.,  46., 1.0)
-#    lon_lims=(-90., -70., 2.0)
+##    lat_lims=( 36.,  46., 1.0)
+##    lon_lims=(-90., -70., 2.0)
 
-    lat_lims=( 38.,  42., 1.0)
-    lon_lims=(-86., -78., 2.0)
+    lat_lims=( 37.,  44., 1.0)
+    lon_lims=(-86., -74., 2.0)
+
+#    lat_lims=( 38.,  42., 1.0)
+#    lon_lims=(-86., -78., 2.0)
     keo_grid    = KeoGrid(lat_lims=lat_lims,lon_lims=lon_lims)
+
+    ################################################
+    # Explicitly choose and order lat, lon values. #
+    ################################################
+    lats    = [ 38.5,  39.5,  40.5,  41.5]
+    lons    = [-85.0, -83.0, -81.0, -79.0]
+    lons    = lons[::-1]
+
+    keo_lat = []
+    for lat in lats:
+        for lat_dct in keo_grid.grid['lat']:
+            if lat_dct['lavg'] == lat:
+                keo_lat.append(lat_dct)
+    keo_grid.grid['lat'] = keo_lat
+
+    keo_lon = []
+    for lon in lons:
+        for lon_dct in keo_grid.grid['lon']:
+            if lon_dct['lavg'] == lon:
+                keo_lon.append(lon_dct)
+    keo_grid.grid['lon'] = keo_lon
+
+    ################################################
+
 #    keo_grid    = KeoGrid()
     keo_grid.plot_maps(output_dir=output_dir)
 
