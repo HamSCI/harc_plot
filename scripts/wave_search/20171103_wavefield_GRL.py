@@ -11,6 +11,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+import scipy as sp
+
 import matplotlib as mpl
 mpl.use('Agg')
 from matplotlib import pyplot as plt
@@ -573,6 +575,24 @@ class KeoHam(object):
 
         keo     = {} # Create dictionary to store keograms.
         row_inx    = 0
+
+        waveDcts    = {}
+        waveDct     = {}
+        waveDct[42.5] = {'xx':16.20,'yy':1250}
+        waveDct[41.5] = {'xx':16.35,'yy':1250}
+        waveDct[40.5] = {'xx':16.45,'yy':1250}
+        waveDct[39.5] = {'xx':16.50,'yy':1250}
+        waveDct[38.5] = {'xx':16.40,'yy':1250}
+        waveDcts['lat'] = waveDct
+
+        waveDct     = {}
+        waveDct[-87.] = {'xx':16.25,'yy':1250}
+        waveDct[-85.] = {'xx':16.25,'yy':1250}
+        waveDct[-83.] = {'xx':16.30,'yy':1200}
+        waveDct[-81.] = {'xx':16.30,'yy':1200}
+        waveDct[-79.] = {'xx':16.30,'yy':1200}
+        waveDcts['lon'] = waveDct
+
         for linx,lkey in enumerate(lkeys):
             grid    = keo_grid.grid[lkey]
             for ginx,rgn in enumerate(grid[::-1]):
@@ -602,6 +622,19 @@ class KeoHam(object):
                 # Plot Time Series ############################################################# 
                 ax      = plt.subplot2grid((nrows,ncols),(row_inx,col_1),colspan=col_1_span)
                 result  = self.time_series_ax(dft,ax,vmax=stackplot_vmax,log_z=False)
+
+
+                # Draw arrows for wave peaks ###################
+                waveDct = waveDcts.get(lkey,{})
+                if rgn['lavg'] in waveDct.keys():
+                    wd = waveDct[rgn['lavg']]
+                    xx = wd['xx']
+                    yy = wd['yy']
+                    ax.annotate("",xy=(xx,yy),xytext=(xx,yy-350),
+                            arrowprops={'arrowstyle':'->','lw':6,'color':'r','mutation_scale':30})
+
+                    wd['lat_avg'] = np.mean(rgn['lat_lim'])
+                    wd['lon_avg'] = np.mean(rgn['lon_lim'])
 
                 data        = result['data']
                 avg_dist    = result['avg_dist']
@@ -683,6 +716,54 @@ class KeoHam(object):
         fig.savefig(fpath,bbox_inches='tight')
         plt.close(fig)
 
+        wave_dfs    = {}
+        for lkey in lkeys:
+            waveDct = waveDcts[lkey]
+            # Calculate waveDct distances.
+            waveList    = []
+            for wd_inx,(wd_key,wd) in enumerate(waveDct.items()):
+                if wd_inx == 0:
+                    lat_0 = wd['lat_avg']
+                    lon_0 = wd['lon_avg']
+                    wd['dist'] = 0
+                else:
+                    lat_1 = wd['lat_avg']
+                    lon_1 = wd['lon_avg']
+                    dist_rad    = harc_plot.geopack.greatCircleDist(lat_0,lon_0,lat_1,lon_1)
+                    dist        = dist_rad * (6371+250.)
+                    wd['dist']  = dist
+                waveList.append(wd)
+            wave_dfs[lkey] = pd.DataFrame(waveList)
+
+
+        velpng_fpath    = fpath.replace('stackplot.png','velocity.png')
+        fig = plt.figure(figsize=(8,10))
+        for vel_inx,lkey in enumerate(lkeys):
+            wave_df = wave_dfs[lkey]
+            ax = fig.add_subplot(2,1,vel_inx+1)
+            xx = wave_df['xx']
+            yy = wave_df['dist']
+            ax.plot(xx,yy,ls=' ',marker='o')
+
+            reg = sp.stats.linregress(xx,yy)
+            rxx = np.arange(xlim[0],xlim[1],0.001)
+            ryy = reg.slope*rxx + reg.intercept
+            label = 'y = {:.0f}x + {:.0f}\nr={:.2f}, p={:.3f}'.format(
+                    reg.slope,reg.intercept,reg.rvalue,reg.pvalue)
+            ax.plot(rxx,ryy,ls='--',label=label)
+
+            ax.legend(loc='upper right')
+
+            ax.set_xlabel('Time [UT]')
+            ax.set_ylabel('Distance [km]')
+            ax.set_title(lkey)
+            ax.set_xlim(16,17)
+            ax.set_ylim(0,None)
+        fig.tight_layout()
+        fig.savefig(velpng_fpath,bbox_inches='tight')
+        import ipdb; ipdb.set_trace()
+
+
 
         # Plot keogram
         fig = plt.figure(figsize=(40,10))
@@ -716,17 +797,30 @@ if __name__ == '__main__':
 ##    lon_lims=(-90., -70., 2.0)
 
     lat_lims=( 37.,  44., 1.0)
-    lon_lims=(-86., -74., 2.0)
+    lon_lims=(-88., -74., 2.0)
 
-#    lat_lims=( 38.,  42., 1.0)
-#    lon_lims=(-86., -78., 2.0)
+#    lat_lims=( 35.,  44., 1.0)
+#    lon_lims=(-88., -74., 2.0)
+
+#    lat_lims=( 37.,  44., 1.0)
+#    lon_lims=(-90., -74., 2.0)
+
     keo_grid    = KeoGrid(lat_lims=lat_lims,lon_lims=lon_lims)
 
     ################################################
     # Explicitly choose and order lat, lon values. #
     ################################################
-    lats    = [ 38.5,  39.5,  40.5,  41.5]
-    lons    = [-85.0, -83.0, -81.0, -79.0]
+#    lats    = [ 39.5,  40.5,  41.5,  42.5]
+#    lons    = [-85.0, -83.0, -81.0, -79.0]
+
+    lats    = [ 38.5,  39.5,  40.5,  41.5,  42.5]
+    lons    = [-87.0, -85.0, -83.0, -81.0, -79.0]
+
+#    lats    = [35.5, 36.5, 37.5, 38.5,  39.5,  40.5,  41.5,  42.5]
+#    lons    = [-87.0, -85.0, -83.0, -81.0, -79.0]
+
+#    lats    = [ 37.5,  38.5,  39.5,  40.5,  41.5,  42.5,  43.5]
+#    lons    = [-89.0, -87.0, -85.0, -83.0, -81.0, -79.0, -77.0]
     lons    = lons[::-1]
 
     keo_lat = []
@@ -753,7 +847,7 @@ if __name__ == '__main__':
     rd['eDate']                 = datetime.datetime(2017,11,3,18)
 #    rd['eDate']                 = datetime.datetime(2017,11,4)
     rd['rgc_lim']               = (0.,3000)
-    rd['xlim']                  = (12,18)
+    rd['xlim']                  = (14,18)
     rd['data_sources']          = [1,2,3]
 #    rd['data_sources']          = [1,2]
     rd['reprocess_raw_data']    = False

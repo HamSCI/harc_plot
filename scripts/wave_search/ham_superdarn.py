@@ -201,6 +201,15 @@ def calc_histogram(frame,attrs):
     da = xr.DataArray(hist,crds,attrs=attrs,dims=[xkey,ykey])
     return da 
 
+def calc_sinusoid(t0,t1,A,DC,T0,phi):
+    """
+    Calculate a sinusoid to put on top of data.
+    """
+    f0  = 1/T0
+    tt  = np.arange(t0,t1,0.01)
+    yy  = A*np.sin(2.*np.pi*f0*(tt-t0+phi)) + DC
+    return (tt,yy)
+
 class KeoHam(object):
     def __init__(self,run_dct):
         """
@@ -296,7 +305,7 @@ class KeoHam(object):
                     print('No data for {!s}'.format(ld_str))
                     continue
 
-                dft['band_MHz'] = np.floor(dft['freq']/1000.).astype(np.int)
+                dft['band_MHz'] = np.floor(dft['freq']/1000.).astype(int)
 
                 dft.to_hdf(h5_path,h5_key,complib='bzip2',complevel=9)
 
@@ -408,6 +417,14 @@ class KeoHam(object):
         sd_cbar = result[1]
         sd_cax  = sd_cbar.ax
         sd_cax_pos      = list(sd_cax.get_position().bounds)
+
+        # Plot visually fitted sinusoid.
+        sinDct  = {'t0':13.1+0.2,'t1':18.25+0.2,'A':200,
+                   'DC':950,'T0':2.5,'phi':0.}
+        tt,yy   = calc_sinusoid(**sinDct)
+        s0      = datetime.datetime(sDate.year,sDate.month,sDate.day)
+        ttd     = [s0+datetime.timedelta(hours=x) for x in tt]
+        ax.plot(ttd,yy,ls=':',lw=4,color='k')
 
         ax.set_ylabel('Slant Range [km]')
         ax.set_ylim(ylim)
@@ -607,6 +624,12 @@ class KeoHam(object):
             ax2.set_ylabel('Avg Dist\n[km]')
 
         ax.set_xlim(xlim)
+
+        # Plot visually fitted sinusoid.
+        sinDct  = {'t0':13.1,'t1':18.25,'A':200,
+                   'DC':1050,'T0':2.5,'phi':0.0}
+        tt,yy   = calc_sinusoid(**sinDct)
+        ax.plot(tt,yy,ls=':',lw=4,color='w')
 
         return {'data':data,'avg_dist':avg_dist,'cbar':result.colorbar}
 
