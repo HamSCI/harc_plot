@@ -12,6 +12,8 @@ import glob
 import bz2
 import tqdm
 
+import pickle as pkl
+
 from string import ascii_lowercase as letters
 
 import numpy as np
@@ -65,6 +67,14 @@ v.append('dist_Km')
 #v.append('rx_loc_source')
 
 band_obj    = gl.BandData()
+
+def extend_vector(xx):
+    """
+    Extends a vector by one point for easy use with pcolormesh.
+    """
+    val = [xx[-1] + xx[-1] - xx[-2]]
+    xx  = np.append(xx,val)
+    return xx
 
 #def load_fitacf(sTime,eTime,radar,data_dir='data/superdarn-bas',fit_sfx='fitacf3'):
 def load_fitacf(sTime,eTime,radar,data_dir='superdarn_data',fit_sfx='fitacf'):
@@ -357,7 +367,7 @@ class KeoHam(object):
         col_0_span  = 30
         col_1       = 35
         col_1_span  = 65
-        nrows       = 4
+        nrows       = 5
         ncols       = 100
 
         row_inx     = 0
@@ -432,11 +442,79 @@ class KeoHam(object):
         ax.set_title('({!s})'.format(letters[row_inx]),{'size':lbl_size},'left')
 
         row_inx += 1
+        ################################################################################ 
+        # PFISR Data ################################################################### 
+        pname = 'data/pfisr/PFISR_03November2017_10222021.pkl'
+        with open(pname,'rb') as fl:
+            pfisr = pkl.load(fl)
+
+        # Electron Density
+        ax      = plt.subplot2grid((nrows,ncols),(row_inx,col_1),colspan=col_1_span)
+        ts_axs_adj.append(ax)
+
+        xx_hr   = (pfisr['UnixTime']-pfisr['tUnixDay'])/3600.
+        xx_hr   = extend_vector(xx_hr)
+        yy      =  pfisr['AltGrid']
+        yy      = extend_vector(yy)
+        zz      =  pfisr['NeGrid'].T
+        
+        vmin,vmax   = (1e10,1e12)
+        if np.max(zz) > vmax:
+            extend = 'max'
+        elif np.min(zz) < vmin:
+            extend = 'min'
+        elif np.max(zz) > vmax and np.min(zz) < vmin:
+            extend = 'both'
+        else:
+            extend = 'neither'
+        mpbl    = ax.pcolor(xx_hr, yy, zz, norm=mpl.colors.LogNorm(vmin=vmin, vmax=vmax))
+        cbar_kwargs={'fraction':0.150,'aspect':10,'pad':0.01,'extend':extend}
+        plt.colorbar(mpbl,label='Ne (m$^{-3}$)',**cbar_kwargs)
+
+        ax.set_ylim(90,150)
+        ax.set_ylabel('Altitude [km]')
+        ax.set_xlim(xlim)
+        ax.set_xlabel('')
+        ax.set_title('PFISR Vertical Beam Electron Density')
+        ax.set_title('({!s})'.format(letters[row_inx]),{'size':lbl_size},'left')
+        row_inx += 1
+
+        # Joule Heating
+        ax      = plt.subplot2grid((nrows,ncols),(row_inx,col_1),colspan=col_1_span)
+        ts_axs_adj.append(ax)
+
+        xx_hr   = (pfisr['JHUnixTime']-pfisr['tUnixDay'])/3600.
+        xx_hr   = extend_vector(xx_hr)
+        yy      =  pfisr['JHAlt']
+        yy      = extend_vector(yy)
+        zz      =  pfisr['JHGrid'].T
+
+        vmin,vmax   = (1e-9,1e-6)
+        if np.max(zz) > vmax:
+            extend = 'max'
+        elif np.min(zz) < vmin:
+            extend = 'min'
+        elif np.max(zz) > vmax and np.min(zz) < vmin:
+            extend = 'both'
+        else:
+            extend = 'neither'
+        mpbl    = ax.pcolor(xx_hr, yy, zz, norm=mpl.colors.LogNorm(vmin=vmin, vmax=vmax))
+        cbar_kwargs={'fraction':0.150,'aspect':10,'pad':0.01,'extend':extend}
+        plt.colorbar(mpbl,label='$\sigma_p E^2$',**cbar_kwargs)
+
+        ax.set_ylim(90,150)
+        ax.set_ylabel('Altitude [km]')
+        ax.set_xlim(xlim)
+        ax.set_xlabel('')
+        ax.set_title('PFISR Vertical Beam Joule Heating')
+        ax.set_title('({!s})'.format(letters[row_inx]),{'size':lbl_size},'left')
+        row_inx += 1
 
         ################################################################################ 
         # Plot Time Series ############################################################# 
         ax      = plt.subplot2grid((nrows,ncols),(row_inx,col_1),colspan=col_1_span)
         ax_01   = ax
+        cbar_kwargs={'fraction':0.150,'aspect':10,'pad':0.01}
         result  = self.time_series_ax(df,ax,vmax=ham_vmax,log_z=ham_log_z,cbar_kwargs=cbar_kwargs)
 
         ham_cbar        = result['cbar']
@@ -456,12 +534,14 @@ class KeoHam(object):
 
         ################################################################################ 
         # Adjust Axes ################################################################## 
+
+        plt.subplots_adjust(hspace=0.275)
         for ax in ts_axs_adj:
             gl.adjust_axes(ax,ax_01)
 
         dfmt    = '%Y %b %d %H%M UT'
         title   = '{!s} - {!s}'.format(sDate.strftime(dfmt), eDate.strftime(dfmt))
-        ax_top.text(0.5,01.10,title,fontdict={'weight':'bold','size':24},ha='center',transform=ax_top.transAxes)
+        ax_top.text(0.5,01.135,title,fontdict={'weight':'bold','size':24},ha='center',transform=ax_top.transAxes)
 
         fpath       = os.path.join(output_dir,fname)
         print('Saving: {!s}'.format(fpath))
