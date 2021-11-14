@@ -11,8 +11,6 @@ import itertools
 import glob
 import bz2
 import tqdm
-import pickle
-from multiprocessing import Pool
 
 import numpy as np
 import pandas as pd
@@ -66,15 +64,6 @@ v.append('dist_Km')
 #v.append('rx_loc_source')
 
 band_obj    = gl.BandData()
-
-def calc_sinusoid(t0,t1,A,DC,T0,phi):
-    """
-    Calculate a sinusoid to put on top of data.
-    """
-    f0  = 1/T0
-    tt  = np.arange(t0,t1,0.01)
-    yy  = A*np.sin(2.*np.pi*f0*(tt-t0+phi)) + DC
-    return (tt,yy)
 
 #def load_fitacf(sTime,eTime,radar,data_dir='data/superdarn-bas',fit_sfx='fitacf3'):
 def load_fitacf(sTime,eTime,radar,data_dir='superdarn_data',fit_sfx='fitacf'):
@@ -266,10 +255,13 @@ class KeoHam(object):
 
         # Load TEC Data
         self.tec_obj    = gps_tec_plot.TecPlotter(sDate)
-#        gps_dates       = self.tec_obj.get_dates(sDate,eDate)
+        self.tec_obj.grid_data(dlat=1.,dlon=1.)
+        gps_dates       = self.tec_obj.get_dates(sDate,eDate)
 
-        self.plot_timeseries()
-
+        for gps_date in gps_dates:
+            print(gps_date)
+            self.plot_timeseries(gps_date)
+    
     def load_data(self):
         """
         Load ham radio data into dataframe from CSV.
@@ -351,7 +343,7 @@ class KeoHam(object):
 
         self.df = df
 
-    def plot_timeseries(self):
+    def plot_timeseries(self,gps_date):
         rd                  = self.run_dct
         png_dir             = rd['png_dir']
         sDate               = rd['sDate']
@@ -366,23 +358,20 @@ class KeoHam(object):
         xkey                = rd['xkey']
         plot_summary_line   = rd.get('plot_summary_line',True)
         filter_region       = rd.get('filter_region','World')
-        frames              = rd.get('frames')
-        plot_tec_ts         = rd.get('plot_tec_ts',True)
 
         df                  = self.df
 
-        gps_dates           = self.tec_obj.get_dates(sDate,eDate)
-
-#        gpsDate_str = gps_date.strftime('%Y%m%d.%H%M')
-#        fname       = '{!s}_ham_tec.png'.format(gpsDate_str)
-        fname       = 'ham_tec_4plot.png'
+#        sDate_str   = sDate.strftime('%Y%m%d.%H%M')
+#        eDate_str   = eDate.strftime('%Y%m%d.%H%M')
+#        date_str    = '{!s}-{!s}'.format(sDate_str,eDate_str)
+        gpsDate_str = gps_date.strftime('%Y%m%d.%H%M')
+        fname       = '{!s}_ham_tec.png'.format(gpsDate_str)
 
         fig     = plt.figure(figsize=(20,10))
 
         ################################################################################ 
         # Plot Time Series ############################################################# 
         ax      = fig.add_subplot(3,1,1)
-        ax.text(0,1.2,'(a)',transform=ax.transAxes,fontdict={'size':18,'weight':'bold'})
         ax_01   = ax
 
         log_z   = False
@@ -394,12 +383,14 @@ class KeoHam(object):
         cax_pos    = list(cax.get_position().bounds)
 
         cax_pos[0] = 0.750 # X0
-        if plot_tec_ts:
-            cax_pos[0] = 0.780 # X0
         cax_pos[1] = 0.654 # Y0
         cax_pos[2] = 0.150 # Width
         cax_pos[3] = 0.226 # Height
         cax.set_position(cax_pos)
+        
+
+        gps_hr  = gps_date.hour + gps_date.minute/60. + gps_date.second/3600.
+        ax.axvline(gps_hr,lw=3,color='w',zorder=1500)
 
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
@@ -410,122 +401,58 @@ class KeoHam(object):
         ax.set_ylabel('Great Circle\nRange [km]')
         ax.set_title('{!s} MHz RBN, PSKReporter, and WSPRNet'.format(rd['band_MHz']))
 
-        dfmt    = '%Y %b %d'
+        dfmt    = '%Y %b %d %H%M UT'
         title   = '{!s} -\n{!s}'.format(sDate.strftime(dfmt), eDate.strftime(dfmt))
         ax.set_title(title,loc='left',fontsize='medium')
-
-        if plot_tec_ts:
-            tec_ts_path = os.path.join(output_dir,fname+'-tec_ts.p')
-            if not os.path.exists(tec_ts_path):
-                # Calculate GPS Time Series
-                gps_dates   = np.array(self.tec_obj.get_dates())
-                gps_hours   = np.array([x.hour + x.minute/60. + x.second/3600. for x in gps_dates])
-                tf          = np.logical_and(gps_hours >= xlim[0], gps_hours < xlim[1])
-                gps_hours   = gps_hours[tf]
-                gps_dates   = gps_dates[tf]
-
-                tec_ts = []
-                for gps_date,gps_hour in tqdm.tqdm(zip(gps_dates,gps_hours),desc='Calculating GPS Statistics',dynamic_ncols=True,total=len(gps_dates)):
-                    tqdm.tqdm.write(str(gps_date))
-                    tmp = self.tec_obj.get_tec_vals(gps_date)
-                    tmp['gps_date']     = gps_date
-                    tmp['gps_hour']     = gps_hour
-                    tec_ts.append(tmp)
-
-                with open(tec_ts_path,'wb') as fl:
-                    pickle.dump(tec_ts,fl)
-
-            else:
-                print('Using cached GPS Time Series Data: {!s}'.format(tec_ts_path))
-                with open(tec_ts_path,'rb') as fl:
-                    tec_ts = pickle.load(fl)
-
-            gps_dates   = []
-            gps_hours   = []
-            gtid        = []
-            for ret_dct in tec_ts:
-                gps_dates.append(ret_dct['gps_date'])
-                gps_hours.append(ret_dct['gps_hour'])
-                gtid.append(ret_dct['gtidus'])
-
-            axt = ax.twinx()
-            axt.plot(gps_hours,gtid,lw=2,color='w',zorder=1500)
-            axt.set_ylabel('Median $\Delta$TECu')
-            axt.set_ylim(-0.2,0.2)
+        
 
         ################################################################################
         # Plot GPS TEC Map #############################################################
-        letters = 'bcde'
-        for frame_inx,frame in enumerate(frames):
-            gps_inx     = np.argmin(np.abs(np.array(gps_dates) - frame))
-            gps_date    = gps_dates[gps_inx]
+        cax         = fig.add_subplot(444)
+        ax          = fig.add_subplot(3,1,(2,3),projection=ccrs.PlateCarree())
+#        tec_plot    = self.tec_obj.plot_tec_ax(gps_date,zz=20,title=False,
+#                        ax=ax,maplim_region=filter_region,cax=cax)
 
-            gps_hr  = gps_date.hour + gps_date.minute/60. + gps_date.second/3600.
-            ax_01.axvline(gps_hr,lw=3,color='w',ls=':',zorder=1500)
-            trans = mpl.transforms.blended_transform_factory(ax_01.transData,ax_01.transAxes)
-            ax.text(gps_hr,0.025,gps_date.strftime('%H%M UT'),rotation=90,color='w',ha='right',
-                    fontdict={'size':10,'weight':'bold'},transform=trans)
+        tec_plot    = self.tec_obj.plot_tec_gridded_ax(gps_date,param='mean_dtecs',title=False,
+                        ax=ax,maplim_region=filter_region,cax=cax)
+
+        # Draw line showing wavefront and calculate wavelength and direction.
+        lat_0,lon_0 = (44.0, -93.)
+        lat_1,lon_1 = (30., -88.)
+
+        gc_dist = gl.geopack.greatCircleDist(lat_0,lon_0,lat_1,lon_1) * (6371+250)
+        gc_azm  = gl.geopack.greatCircleAzm(lat_0,lon_0,lat_1,lon_1)
+        print('Wavelength: {:.0f} km'.format(gc_dist))
+        print('Azimuth: {:.0f} deg'.format(gc_azm))
+        ax.annotate("",xy=(lon_1,lat_1),xytext=(lon_0,lat_0),
+                arrowprops={'arrowstyle':'->','lw':3,'ls':'-','mutation_scale':30},
+                transform=ccrs.PlateCarree())
+
+        ax.annotate("",xy=(lon_1,lat_1),xytext=(lon_0,lat_0),
+                arrowprops={'arrowstyle':'|-|','lw':3,'ls':'-'},
+                transform=ccrs.PlateCarree())
+
+        lbl = '$\lambda = ${:.0f} km; $\phi = ${:.0f}$^\circ$'.format(gc_dist,gc_azm)
+        ax.text(0.01,0.01,lbl,transform=ax.transAxes)
 
 
-            cax         = fig.add_subplot(4,4,frame_inx+1)
-            ax          = fig.add_subplot(3,2,3+frame_inx,projection=ccrs.PlateCarree())
+        ax_pos      = list(ax.get_position().bounds)
+        ax_pos[0]   = 0.125 # X0
+        ax_pos[1]   = 0.00  # Y0
+        ax_pos[2]   = 0.59  # Width
+        ax_pos[3]   = 0.59  # Height
+        ax.set_position(ax_pos)
 
-#            ax          = fig.add_subplot(3,1,(2,3),projection=ccrs.PlateCarree())
-            tec_plot    = self.tec_obj.plot_tec_ax(gps_date,zz=20,title=False,
-                            ax=ax,maplim_region=filter_region,cax=cax,
-                            top_labels=False,right_labels=False)
-            
+        cbar        = tec_plot['cbar']
+        cax        = cbar.ax
+        cax_pos    = list(cax.get_position().bounds)
+        cax_pos[0] = 0.750 # X0
+        cax_pos[1] = 0.000 # Y0
+        cax_pos[2] = 0.0225 # Width
+        cax_pos[3] = 0.590 # Height
+        cax.set_position(cax_pos)
 
-            # Draw line showing wavefront and calculate wavelength and direction.
-            lat_0,lon_0 = (44.0, -93.)
-            lat_1,lon_1 = (30., -88.)
-
-            ax.annotate("",xy=(lon_1,lat_1),xytext=(lon_0,lat_0),
-                    arrowprops={'arrowstyle':'->','lw':3,'ls':'-','mutation_scale':30},
-                    transform=ccrs.PlateCarree())
-
-            ax.annotate("",xy=(lon_1,lat_1),xytext=(lon_0,lat_0),
-                    arrowprops={'arrowstyle':'|-|','lw':3,'ls':'-'},
-                    transform=ccrs.PlateCarree())
-            
-            gc_dist = gl.geopack.greatCircleDist(lat_0,lon_0,lat_1,lon_1) * (6371+250)
-            gc_azm  = gl.geopack.greatCircleAzm(lat_0,lon_0,lat_1,lon_1)
-            print('Wavelength: {:.0f} km'.format(gc_dist))
-            print('Azimuth: {:.0f} deg'.format(gc_azm))
-
-            hgt     = 0.265
-            wdt     = 0.265
-
-            r0_y0   = 0.325
-            r1_y0   = 0.000
-
-            c0_x0   = 0.125
-            c1_x0   = 0.445
-
-            posD    = {}
-                    # (   X0,    Y0, Wdt, Hgt)
-            posD[0] = (c0_x0, r0_y0, wdt, hgt)
-            posD[1] = (c1_x0, r0_y0, wdt, hgt)
-            posD[2] = (c0_x0, r1_y0, wdt, hgt)
-            posD[3] = (c1_x0, r1_y0, wdt, hgt)
-
-            ax_pos  = posD.get(frame_inx)
-            if ax_pos is not None:
-                ax.set_position(ax_pos)
-
-            ax.set_title(gps_date.strftime('%H%M UT'))
-            ax.set_title('({!s})'.format(letters[frame_inx]),loc='left')
-
-            cbar        = tec_plot['cbar']
-            cax        = cbar.ax
-            cax_pos    = list(cax.get_position().bounds)
-            cax_pos[0] = 0.750 # X0
-            cax_pos[1] = 0.000 # Y0
-            cax_pos[2] = 0.0225 # Width
-            cax_pos[3] = 0.590 # Height
-            cax.set_position(cax_pos)
-
-        dfmt    = '%Y %b %d'
+        dfmt    = '%Y %b %d %H%M UT'
 #        title   = '{!s} - {!s}'.format(sDate.strftime(dfmt), eDate.strftime(dfmt))
         title   = '{!s}'.format(gps_date.strftime(dfmt))
         fig.text(0.425,0.93,title,fontdict={'weight':'bold','size':24},ha='center')
@@ -577,6 +504,7 @@ class KeoHam(object):
         ax.set_xlim(plot_rgn.get('lon_lim'))
         ax.set_ylim(plot_rgn.get('lat_lim'))
 
+
     def time_series_ax(self,df,ax,vmax=None,log_z=False):
         rd                  = self.run_dct
         sDate               = rd['sDate']
@@ -615,60 +543,28 @@ class KeoHam(object):
         title   = 'Bin Size:\n{!s} min x {!s} km'.format(rd['xb_size_min'],rd['yb_size_km'])
         ax.set_title(title,loc='right',fontsize='medium')
 
-        yrgn    = (750,1750)
-        data_0  = data.sel(dist_Km=slice(*yrgn))
-        data_1  = data_0['dist_Km']*data_0
-        data_2  = data_1.sum('dist_Km').values
-        data_2  = pd.Series(data_2).rolling(8).median().values
-        data_2[np.logical_not(np.isfinite(data_2))] = 0
-
         # Calculate Derived Line
         sum_cnts    = data.sum('dist_Km').data
         avg_dist    = (data.dist_Km.data @ data.data.T) / sum_cnts
 
         if plot_summary_line:
-#        if True:
             ax2     = ax.twinx()
-#            ax2.plot(data.ut_hrs,avg_dist,lw=2,color='r')
-            ax2.plot(data.ut_hrs,data_2,lw=2,color='r')
-#            ax2.set_ylim(0,3000)
-#            ax2.set_ylabel('Avg Dist\n[km]')
+            ax2.plot(data.ut_hrs,avg_dist,lw=2,color='w')
+            ax2.set_ylim(0,3000)
+            ax2.set_ylabel('Avg Dist\n[km]')
 
         ax.set_xlim(xlim)
-
-        # Plot visually fitted sinusoid.
-        sinDct  = {'t0':13.1,'t1':18.25,'A':200,
-                   'DC':1050,'T0':2.5,'phi':0.0}
-        tt,yy   = calc_sinusoid(**sinDct)
-        ax.plot(tt,yy,ls=':',lw=2,color='w')
 
         return {'data':data,'avg_dist':avg_dist,'cbar':result.colorbar}
 
 
 if __name__ == '__main__':
-    output_dir  = os.path.join('output/ham_tec_4plot')
+    output_dir  = os.path.join('output/ham_tec_tracker')
     gl.prep_output({0:output_dir},clear=False,php=False)
 
     rd  = {}
-    rd['sDate']                 = datetime.datetime(2017,11,3)
+    rd['sDate']                 = datetime.datetime(2017,11,3,12)
     rd['eDate']                 = datetime.datetime(2017,11,4)
-    rd['xlim']                  = (12,24)
-
-#    frames = []
-#    offset = datetime.timedelta(minutes=0)
-#    frames.append(datetime.datetime(2017,11,3,15,00)+offset)
-#    frames.append(datetime.datetime(2017,11,3,16,00)+offset)
-#    frames.append(datetime.datetime(2017,11,3,17,00)+offset)
-#    frames.append(datetime.datetime(2017,11,3,18,00)+offset)
-
-    frames = []
-    frames.append(datetime.datetime(2017,11,3,00)+datetime.timedelta(hours=13.1+2.5/4))
-#    frames.append(datetime.datetime(2017,11,3,13,45))
-    frame_dt    = datetime.timedelta(hours=1.25)
-    for frame_inx in range(3):
-        frames.append(frames[frame_inx]+frame_dt)
-
-    rd['frames']                = frames
 
 #    rd['sDate']                 = datetime.datetime(2017,5,16,12)
 #    rd['eDate']                 = datetime.datetime(2017,5,17)

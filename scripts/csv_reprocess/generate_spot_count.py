@@ -120,8 +120,14 @@ def main(run_dct):
     
 if __name__ == '__main__':
     data_out    = os.path.join('spot_counts')
-    sTime       = datetime.datetime(2013,5,1)
-    eTime       = datetime.datetime(2013,6,1)
+#    sTime       = datetime.datetime(2013,5,1)
+#    eTime       = datetime.datetime(2013,6,1)
+
+#    sTime       = datetime.datetime(2015,5,1)
+#    eTime       = datetime.datetime(2015,6,1)
+
+    sTime       = datetime.datetime(2014,4,1)
+    eTime       = datetime.datetime(2014,5,1)
     regions     = ['US','Europe']
     rgc_lim     = None
 

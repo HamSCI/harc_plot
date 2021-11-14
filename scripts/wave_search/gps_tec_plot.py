@@ -12,6 +12,7 @@ import cartopy.crs as ccrs
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 from cartopy.feature.nightshade import Nightshade
 
+import tqdm
 
 from harc_plot import gen_lib as gl
 
@@ -118,6 +119,59 @@ class TecPlotter(object):
         self.prefixb    = prefixb
         self.prefixo    = prefixo
 
+    def grid_data(self,dlat=1.,dlon=1.,sDate=None,eDate=None,tdelta=None):
+        """
+        Grid GPS data onto a regular grid.
+        """
+        dates   = self.get_dates(sDate=sDate,eDate=eDate,tdelta=tdelta)
+        lats    = np.arange(-90.,90.,dlat)
+        lons    = np.arange(-180.,180.,dlon)
+
+        mean_dtecs  = np.zeros((lats.size,lons.size,len(dates)))
+        std_dtecs   = np.zeros((lats.size,lons.size,len(dates)))
+        n_dtecs     = np.zeros((lats.size,lons.size,len(dates)))
+
+
+        tecs    = self.tecs
+        day     = self.day
+        ut0     = self.ut0
+        dt      = self.dt
+        tod     = self.tod
+
+        for date_inx,date in tqdm.tqdm(enumerate(dates),dynamic_ncols=True,total=len(dates)):
+            inx                 = self.date2inx(date)
+
+            pidx                = np.where( (tod  > dt*inx) & (tod < (dt*inx+dt)) )[0]           # Time of Day Index
+
+            tec_lats    = tecs[pidx,1]
+            tec_lons    = tecs[pidx,2]
+            dtecs       = tecs[pidx,3]
+
+            for lat_inx,lat in enumerate(lats):
+                tf  = np.logical_and(tec_lats >= lat, tec_lats < lat + dlat)
+                tec_lats_1  = tec_lats[tf]
+                tec_lons_1  = tec_lons[tf]
+                dtecs_1     = dtecs[tf]
+
+                for lon_inx,lon in enumerate(lons):
+                    tf  = np.logical_and(tec_lons_1 >= lon, tec_lons_1 < lon + dlon)
+                    tec_lats_2  = tec_lats_1[tf]
+                    tec_lons_2  = tec_lons_1[tf]
+                    dtecs_2     = dtecs_1[tf]
+
+                    if len(dtecs_2) == 0:
+                        continue
+                    mean_dtecs[lat_inx,lon_inx,date_inx]    = np.nanmean(dtecs_2)
+                    std_dtecs[lat_inx,lon_inx,date_inx]     = np.nanstd(dtecs_2)
+                    n_dtecs[lat_inx,lon_inx,date_inx]       = len(dtecs_2)
+
+        self.gridded_dates  = dates
+        self.gridded_lats   = lats
+        self.gridded_lons   = lons
+        self.mean_dtecs     = mean_dtecs
+        self.std_dtecs      = std_dtecs
+        self.n_dtecs        = n_dtecs
+
     def date2inx(self,date):
         """
         Convert python datetime to tec vector time index.
@@ -159,6 +213,12 @@ class TecPlotter(object):
         for plotDate in dates:
             self.plot_tec_fig(plotDate,**kwargs)
 
+
+    def plot_day_gridded(self,param='mean_dtecs'):
+        dates   = self.gridded_dates
+        for plotDate in dates:
+            self.plot_tec_fig_gridded(plotDate,param)
+
     def plot_tec_fig(self,plotDate,fname=None,rr=0,**kwargs):
 
         fig = plt.figure(figsize=(15,7.5))
@@ -180,9 +240,77 @@ class TecPlotter(object):
         print('   --> {!s}'.format(fname))
         plt.close(fig)
 
+    def plot_tec_fig_gridded(self,plotDate,param='mean_dtecs',fname=None,**kwargs):
+        fig = plt.figure(figsize=(15,7.5))
+        ax  = self.plot_tec_gridded_ax(plotDate,fig=fig,param=param,**kwargs)
+
+        if fname is None:
+            pref        = self.prefixo
+            dname       = "%s/%s"%(pref,plotDate.strftime('%Y-%m-%dT%H-00-00'))
+            utcstr      = plotDate.strftime('UTC %Y-%m-%d %H:%M:%S')
+            date_str    = plotDate.strftime('%Y%m%d.%H%M.%SUT')
+            print(utcstr)
+            os.system("mkdir -p %s"%(dname))
+
+            fname = "{!s}/{!s}_{!s}.png".format(dname,param,date_str)
+
+        fig.savefig(fname,bbox_inches='tight')
+        print('   --> {!s}'.format(fname))
+        plt.close(fig)
+
+    def plot_tec_gridded_ax(self,plotDate,fig=None,ax=None,param='mean_dtecs',vx=-0.2,vy=0.2,cmap='jet',
+            projection=ccrs.PlateCarree(),maplim_region='World',cax=None,
+            title=None,grid=True,
+            top_labels=True,bottom_labels=True,right_labels=True,left_labels=True):
+        """
+        vx      = -0.2          # if f=1, plotting color scale min, default=5
+        vy      =  0.2          # if f=1, plotting color scale max, default=50
+        figs    = True          # generate figures (0=no 1= yes) default=0
+        """
+
+        if fig is None:
+            fig = ax.get_figure()
+
+        if ax is None:
+            ax  = fig.add_subplot(1,1,1, projection=projection)
+        plt.sca(ax)
+
+        ax.set_xlim(gl.regions[maplim_region]['lon_lim'])
+        ax.set_ylim(gl.regions[maplim_region]['lat_lim'])
+
+        ax.coastlines()
+        if grid is True:
+            grd = ax.gridlines()
+            grd.bottom_labels   = bottom_labels
+            grd.top_labels      = top_labels
+            grd.left_labels     = left_labels
+            grd.right_labels    = right_labels
+
+        ax.add_feature(Nightshade(plotDate, alpha=0.2))
+
+        lats    = self.gridded_lats
+        lons    = self.gridded_lons
+
+        dinx    = np.where(np.array(self.gridded_dates) == plotDate)[0][0]
+        vals    = getattr(self,param)[:,:,dinx]
+
+        mpbl    = ax.pcolormesh(lons,lats,vals,vmin=vx,vmax=vy,cmap=cmap)
+
+        if title is None:
+            ax.set_title(plotDate.strftime('UTC %Y-%m-%d %H:%M:%S'))
+        elif title is not False:
+            ax.set_title(title)
+
+        cbar = plt.colorbar(mpbl,shrink=0.8,pad=0.075,cax=cax,extend='both')
+#        cbar.set_label('$\Delta$TECu')#,size='medium')
+        cbar.set_label(param)#,size='medium')
+
+        return {'ax':ax,'cbar':cbar}
+
     def plot_tec_ax(self,plotDate,fig=None,ax=None,vx=-0.2,vy=0.2,rr=0,zz=10,cmap='jet',
             projection=ccrs.PlateCarree(),maplim_region='World',cax=None,wgec=False,
-            title=None,top_labels=True,bottom_labels=True,right_labels=True,left_labels=True):
+            title=None,grid=True,
+            top_labels=True,bottom_labels=True,right_labels=True,left_labels=True):
         """
         vx      = -0.2          # if f=1, plotting color scale min, default=5
         vy      =  0.2          # if f=1, plotting color scale max, default=50
@@ -242,11 +370,12 @@ class TecPlotter(object):
         ax.set_ylim(gl.regions[maplim_region]['lat_lim'])
 
         ax.coastlines()
-        grd = ax.gridlines()
-        grd.bottom_labels   = bottom_labels
-        grd.top_labels      = top_labels
-        grd.left_labels     = left_labels
-        grd.right_labels    = right_labels
+        if grid is True:
+            grd = ax.gridlines()
+            grd.bottom_labels   = bottom_labels
+            grd.top_labels      = top_labels
+            grd.left_labels     = left_labels
+            grd.right_labels    = right_labels
 
         x, y = tecs[pidx,2],tecs[pidx,1]
         if rr==1: # TEC
@@ -267,7 +396,7 @@ class TecPlotter(object):
 
         return {'ax':ax,'cbar':cbar}
 
-    def get_tec_vals(self,plotDate,wgec=False):
+    def get_tec_vals(self,plotDate,wgec=False,return_tec_values=False):
         """
         wgec    = False         # generate a data output file for global and US regional mean TEC (0=no 1=yes), default=0
         """
@@ -305,19 +434,22 @@ class TecPlotter(object):
         gecus_std_right     = np.std(tecs[pidus_right,4])
         gtidus_std_right    = np.std(tecs[pidus_right,3]) 
 
+        ret_dct = {}
+
         if wgec:
             gfo.write("%d  %1.5f %7.3f %7.3f %9.5f %9.5f  %7.0f %7.0f\n"%(day,inx*dt/3600,gec,gecus,gtidus,gtidus_std,len(pidx0),len(pidus)))
             gfo_left.write("%d  %1.5f %7.3f %7.3f %9.5f %9.5f  %7.0f %7.0f\n"%(day,inx*dt/3600,gec,gecus_left,gtidus_left,gtidus_std_left,len(pidx0),len(pidus_left)))
             gfo_mid.write("%d  %1.5f %7.3f %7.3f %9.5f %9.5f  %7.0f %7.0f\n"%(day,inx*dt/3600,gec,gecus_mid,gtidus_mid,gtidus_std_mid,len(pidx0),len(pidus_mid)))
             gfo_right.write("%d  %1.5f %7.3f %7.3f %9.5f %9.5f  %7.0f %7.0f\n"%(day,inx*dt/3600,gec,gecus_right,gtidus_right,gtidus_std_right,len(pidx0),len(pidus_right)))
 
-        ret_dct = {}
-        ret_dct['pidx']               = pidx            
-        ret_dct['pidx0']              = pidx0           
-        ret_dct['pidus']              = pidus           
-        ret_dct['pidus_left']         = pidus_left      
-        ret_dct['pidus_mid']          = pidus_mid       
-        ret_dct['pidus_right']        = pidus_right     
+        if return_tec_values:
+            ret_dct['pidx']             = pidx            
+            ret_dct['pidx0']            = pidx0           
+            ret_dct['pidus']            = pidus           
+            ret_dct['pidus_left']       = pidus_left      
+            ret_dct['pidus_mid']        = pidus_mid       
+            ret_dct['pidus_right']      = pidus_right     
+            ret_dct['tecs']             = tecs
 
         ret_dct['gec']                = gec             
         ret_dct['gecus']              = gecus           

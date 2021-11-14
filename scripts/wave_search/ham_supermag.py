@@ -459,11 +459,11 @@ class KeoHam(object):
         zz      =  pfisr['NeGrid'].T
         
         vmin,vmax   = (1e10,1e12)
-        if np.max(zz) > vmax:
+        if np.nanmax(zz) > vmax:
             extend = 'max'
-        elif np.min(zz) < vmin:
+        elif np.nanmin(zz) < vmin:
             extend = 'min'
-        elif np.max(zz) > vmax and np.min(zz) < vmin:
+        elif np.nanmax(zz) > vmax and np.nanmin(zz) < vmin:
             extend = 'both'
         else:
             extend = 'neither'
@@ -490,11 +490,11 @@ class KeoHam(object):
         zz      =  pfisr['JHGrid'].T
 
         vmin,vmax   = (1e-9,1e-6)
-        if np.max(zz) > vmax:
+        if np.nanmax(zz) > vmax:
             extend = 'max'
-        elif np.min(zz) < vmin:
+        elif np.nanmin(zz) < vmin:
             extend = 'min'
-        elif np.max(zz) > vmax and np.min(zz) < vmin:
+        elif np.nanmax(zz) > vmax and np.nanmin(zz) < vmin:
             extend = 'both'
         else:
             extend = 'neither'
