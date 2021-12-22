@@ -739,8 +739,12 @@ class KeoHam(object):
         velpng_fpath    = fpath.replace('stackplot.png','velocity.png')
         fig = plt.figure(figsize=(8,10))
         for vel_inx,lkey in enumerate(lkeys):
-            wave_df = wave_dfs[lkey]
+            wave_df = wave_dfs[lkey].copy()
             ax = fig.add_subplot(2,1,vel_inx+1)
+            if lkey == 'lat':
+                del_inx = np.where(wave_df['lat_avg'] == 38.5)[0][0]
+                wave_df = wave_df.drop(del_inx)
+
             xx = wave_df['xx']
             yy = wave_df['dist']
             ax.plot(xx,yy,ls=' ',marker='o')
