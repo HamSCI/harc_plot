@@ -397,7 +397,7 @@ class KeoHam(object):
         ax.set_xlim(xlim)
 
 #        ax.legend(loc='upper right')
-        ax.set_ylabel('nT')
+        ax.set_ylabel('SME [nT]')
         
         ax.set_title('SuperMAG SME Index')
         ax.set_title('({!s})'.format(letters[row_inx]),{'size':lbl_size},'left')
@@ -444,7 +444,7 @@ class KeoHam(object):
         row_inx += 1
         ################################################################################ 
         # PFISR Data ################################################################### 
-        pname = 'data/pfisr/PFISR_03November2017_10222021.pkl'
+        pname = 'data/pfisr/PFISR_03November2017_12212021.pkl'
         with open(pname,'rb') as fl:
             pfisr = pkl.load(fl)
 
@@ -469,7 +469,7 @@ class KeoHam(object):
             extend = 'neither'
         mpbl    = ax.pcolor(xx_hr, yy, zz, norm=mpl.colors.LogNorm(vmin=vmin, vmax=vmax))
         cbar_kwargs={'fraction':0.150,'aspect':10,'pad':0.01,'extend':extend}
-        plt.colorbar(mpbl,label='Ne (m$^{-3}$)',**cbar_kwargs)
+        plt.colorbar(mpbl,label='Ne [m$^{-3}$]',**cbar_kwargs)
 
         ax.set_ylim(90,150)
         ax.set_ylabel('Altitude [km]')
@@ -487,7 +487,7 @@ class KeoHam(object):
         xx_hr   = extend_vector(xx_hr)
         yy      =  pfisr['JHAlt']
         yy      = extend_vector(yy)
-        zz      =  pfisr['JHGrid'].T
+        zz      =  pfisr['JHGridFilt'].T
 
         vmin,vmax   = (1e-9,1e-6)
         if np.nanmax(zz) > vmax:
@@ -500,7 +500,7 @@ class KeoHam(object):
             extend = 'neither'
         mpbl    = ax.pcolor(xx_hr, yy, zz, norm=mpl.colors.LogNorm(vmin=vmin, vmax=vmax))
         cbar_kwargs={'fraction':0.150,'aspect':10,'pad':0.01,'extend':extend}
-        plt.colorbar(mpbl,label='$\sigma_p E^2$',**cbar_kwargs)
+        plt.colorbar(mpbl,label='$\sigma_p E^2$ [W m$^{-3}$]',**cbar_kwargs)
 
         ax.set_ylim(90,150)
         ax.set_ylabel('Altitude [km]')
