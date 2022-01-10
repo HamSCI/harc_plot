@@ -172,6 +172,84 @@ class TecPlotter(object):
         self.std_dtecs      = std_dtecs
         self.n_dtecs        = n_dtecs
 
+    def plot_keogram(self,ax,lat_0,lat_1,lon_0,lon_1,sDate=None,eDate=None,tdelta=None,keotype='lat',
+           map_ax=None,vx=-0.2,vy=0.2,rr=0,zz=10,cmap='jet'):
+        """
+        Plot a keogram of GNSS TEC Data
+        """
+        dates   = self.get_dates(sDate=sDate,eDate=eDate,tdelta=tdelta)
+
+        tecs    = self.tecs
+        day     = self.day
+        ut0     = self.ut0
+        dt      = self.dt
+        tod     = self.tod
+
+#        keo_xx      = []
+#        keo_yy      = np.array([])
+#        keo_dtecs   = np.array([])
+#        keo_lats    = np.array([])
+#        keo_lons    = np.array([])
+        for date_inx,date in tqdm.tqdm(enumerate(dates),dynamic_ncols=True,total=len(dates),desc='{!s} GNSS Keogram'.format(keotype)):
+            inx                 = self.date2inx(date)
+
+            pidx                = np.where( (tod  > dt*inx) & (tod < (dt*inx+dt)) )[0]           # Time of Day Index
+            tec_lats    = tecs[pidx,1]
+            tec_lons    = tecs[pidx,2]
+            dtecs       = tecs[pidx,3]
+
+            # Filter out unneeded lats/lons.
+            tf          = np.logical_and(tec_lats >= lat_0, tec_lats < lat_1)
+            tec_lats    = tec_lats[tf]
+            tec_lons    = tec_lons[tf]
+            dtecs       = dtecs[tf]
+
+            tf          = np.logical_and(tec_lons >= lon_0, tec_lons < lon_1)
+            tec_lats    = tec_lats[tf]
+            tec_lons    = tec_lons[tf]
+            dtecs       = dtecs[tf]
+
+            xx          = [date]*len(dtecs)
+            if keotype == 'lat':
+                yy          = tec_lats
+            elif keotype == 'lon':
+                yy          = tec_lons
+
+            mpbl        = ax.scatter(xx,yy,c=dtecs,vmin=vx,vmax=vy,cmap=cmap,edgecolors='none',rasterized=True)
+
+            if map_ax is not None:
+                map_ax.scatter(tec_lons,tec_lats,c=dtecs,vmin=vx,vmax=vy,cmap=cmap,edgecolors='none',rasterized=True)
+
+#            keo_xx      = keo_xx + xx
+#            keo_yy      = np.concatenate((keo_yy,yy))
+#            keo_dtecs   = np.concatenate((keo_dtecs,dtecs))
+#            keo_lats    = np.concatenate((keo_lats,tec_lats))
+#            keo_lons    = np.concatenate((keo_lons,tec_lons))
+#
+#        mpbl        = ax.scatter(keo_xx,keo_yy,c=keo_dtecs,vmin=vx,vmax=vy,cmap=cmap,edgecolors='none',rasterized=True)
+#
+#        if map_ax is not None:
+#            map_ax.scatter(keo_lons,keo_lats,c=keo_dtecs,vmin=vx,vmax=vy,cmap=cmap,edgecolors='none',rasterized=True)
+
+        sDate_str = sDate.strftime('%d %b %Y')
+        if keotype == 'lat':
+            ax.set_ylabel('Latitude [deg]')
+            ax.set_ylim(lat_0,lat_1)
+            title = ' - '.join([sDate_str,'Lon Lim: {:.0f} to {:.0f}'.format(lon_0,lon_1)])
+            ax.set_title(title)
+        elif keotype == 'lon':
+            ax.set_ylabel('Longitude [deg]')
+            ax.set_ylim(lon_0,lon_1)
+            title = ' - '.join([sDate_str,'Lat Lim: {:.0f} to {:.0f}'.format(lat_0,lat_1)])
+            ax.set_title(title)
+
+        ax.set_xlim(sDate,eDate)
+        ax.set_xlabel('Time [UT]')
+
+        cbar = plt.colorbar(mpbl,shrink=0.8,pad=0.075,cax=None,extend='both')
+        cbar.set_label('$\Delta$TECu')#,size='medium')
+        return {'ax':ax,'cbar':cbar,'title':title}
+
     def date2inx(self,date):
         """
         Convert python datetime to tec vector time index.

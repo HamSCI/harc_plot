@@ -14,6 +14,9 @@ import tqdm
 
 import pickle as pkl
 
+import string
+letters = string.ascii_lowercase
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -232,7 +235,7 @@ def gps_time_series(key='gtidus',hr_lim = (12,24)):
     line    = regress.slope*dt_hours + regress.intercept
     gtid_detrend = gtid - line
 
-    # Hanning Window GPS dTEC data.
+    # Hanning Window GNSS dTEC data.
     han_win         = np.hanning(len(gtid_detrend))
     gtid_han        = han_win*gtid_detrend
 
@@ -451,27 +454,31 @@ class KeoHam(object):
         date_str    = '{!s}-{!s}'.format(sDate_str,eDate_str)
         fname       = '{!s}_ham_superdarn.png'.format(date_str)
 
-        fig     = plt.figure(figsize=(35,20))
+        fig     = plt.figure(figsize=(35,30))
         col_0       = 0
         col_0_span  = 30
         col_1       = 35
         col_1_span  = 65
-        nrows       = 4
+        nrows       = 6
         ncols       = 100
+
+        ax_inx      = -1
 
         ################################################################################
         # Plot Map #####################################################################
+        ax_inx      += 1
         ax = plt.subplot2grid((nrows,ncols),(0,col_0),
                 projection=ccrs.PlateCarree(),colspan=col_0_span)
         ax_00       = ax
 
         lbl_size    = 24
-        ax.set_title('(a)',{'size':lbl_size},'left')
+        ax.set_title('({!s})'.format(letters[ax_inx]),{'size':lbl_size},'left')
         
         self.map_ax(df,ax)
 
         ################################################################################ 
         # Plot Time Series ############################################################# 
+        ax_inx      += 1
         ax      = plt.subplot2grid((nrows,ncols),(0,col_1),colspan=col_1_span)
         ax_01   = ax
         result  = self.time_series_ax(df,ax,vmax=ham_vmax,log_z=ham_log_z)
@@ -490,7 +497,7 @@ class KeoHam(object):
 #        ax.set_title('{!s} MHz RBN, PSKReporter, and WSPRNet'.format(rd['band_MHz']))
 #        ax.set_title('(b)',{'size':lbl_size},'left')
         ax.set_title('')
-        ax.set_title('(b) {!s} MHz RBN, PSKReporter, and WSPRNet'.format(rd['band_MHz']),loc='left')
+        ax.set_title('({!s}) {!s} MHz RBN, PSKReporter, and WSPRNet'.format(letters[ax_inx],rd['band_MHz']),loc='left')
 
         ################################################################################
         # Plot SuperDARN Map ###########################################################
@@ -523,19 +530,19 @@ class KeoHam(object):
         tf = fit_to_csv['tfreq'] > 0
         fit_to_csv = fit_to_csv[tf].copy()
 
-        import ipdb; ipdb.set_trace()
-
         hdw_data    = pydarn.read_hdw_file(radar,sDate)
 
+        ax_inx      += 1
         ax = plt.subplot2grid((nrows,ncols),(1,col_0),
                 projection=ccrs.PlateCarree(),colspan=col_0_span)
         ax_10       = ax
         self.map_ax_superdarn(ax,hdw_data,beam)
         ax.set_title('{!s} SuperDARN Radar Beam {!s}'.format(radar.upper(),beam))
-        ax.set_title('(c)',{'size':lbl_size},'left')
+        ax.set_title('({!s})'.format(letters[ax_inx]),{'size':lbl_size},'left')
 
         ################################################################################ 
         # Plot SuperDARN Time Series ################################################### 
+        ax_inx      += 1
         ax      = plt.subplot2grid((nrows,ncols),(1,col_1),colspan=col_1_span)
         ax_11   = ax
         result  = pydarn.RTP.plot_range_time(fitacf, beam_num=beam, parameter='p_l', zmax=50, zmin=0, date_fmt='%H', colorbar_label='Power (dB)', cmap='viridis',ax=ax)
@@ -559,15 +566,107 @@ class KeoHam(object):
         ax.set_xlabel('Time [UT]')
 #        ax.set_title('{!s} SuperDARN Radar Beam {!s}'.format(radar.upper(),beam))
 #        ax.set_title('(d)',{'size':lbl_size},'left')
-        ax.set_title('(d) {!s} SuperDARN Radar Beam {!s}'.format(radar.upper(),beam),loc='left')
+        ax.set_title('({!s}) {!s} SuperDARN Radar Beam {!s}'.format(letters[ax_inx],radar.upper(),beam),loc='left')
+
+        # Load TEC Data ################################################################
+        self.tec_obj    = gps_tec_plot.TecPlotter(sDate)
 
         ################################################################################
-        # Plot GPS dTEC Map ############################################################ 
-        ax = plt.subplot2grid((nrows,ncols),(2,col_0),
-                projection=ccrs.PlateCarree(),colspan=col_0_span)
+        # Plot GNSS dTEC Latitudinal Keogram Map ######################################## 
+        ax_inx  += 1
+        ax = plt.subplot2grid((nrows,ncols),(2,col_0),projection=ccrs.PlateCarree(),colspan=col_0_span)
         ax_20       = ax
 
-        self.tec_obj    = gps_tec_plot.TecPlotter(sDate)
+        ax.add_feature(cartopy.feature.COASTLINE)
+        ax.add_feature(cartopy.feature.BORDERS, linestyle=':')
+
+        plot_rgn      = gl.regions.get(filter_region)
+        ax.set_xlim(plot_rgn.get('lon_lim'))
+        ax.set_ylim(plot_rgn.get('lat_lim'))
+
+
+        ax.set_title('Data Coverage for Latitudinal Keogram')
+        ax.set_title('({!s})'.format(letters[ax_inx]),{'size':lbl_size},'left')
+
+        ################################################################################ 
+        # Plot GNSS dTEC Latitudinal Keogram ########################################### 
+        keo_lat_lim = ( 37., 44.)
+        keo_lon_lim = (-88., -74.)
+
+#        keo_lat_lim = ( 30., 50.)
+#        keo_lon_lim = (-120., -70.)
+
+        ax_inx  += 1
+        ax      = plt.subplot2grid((nrows,ncols),(2,col_1),colspan=col_1_span)
+        ax_21   = ax
+
+        result  = self.tec_obj.plot_keogram(ax,*keo_lat_lim,*keo_lon_lim,sDate,eDate,keotype='lat',map_ax=ax_20)
+
+        ax.grid(True,ls=':')
+        ax.set_xlim(sDate,eDate)
+
+        ax.set_ylabel('Latitude [deg]')
+
+        ax.set_xlabel('Time [UT]')
+        ax.set_title('')
+        ax.set_title('({!s}) GNSS dTEC Latitudinal Keogram'.format(letters[ax_inx]),loc='left')
+        ax.set_title('Lon Lim: {!s} to {!s}'.format(*keo_lon_lim),loc='right')
+
+        xticks  = ax.get_xticks()
+        xtls    = []
+        for xt in xticks:
+            hr = (mpl.dates.num2date(xt)).strftime('%H')
+            xtls.append(hr)
+        ax.set_xticks(xticks.tolist())
+        ax.set_xticklabels(xtls)
+
+        ################################################################################
+        # Plot GNSS dTEC Longitudinal Keogram Map ######################################
+        ax_inx  += 1
+        ax = plt.subplot2grid((nrows,ncols),(3,col_0),projection=ccrs.PlateCarree(),colspan=col_0_span)
+        ax_30       = ax
+
+        ax.add_feature(cartopy.feature.COASTLINE)
+        ax.add_feature(cartopy.feature.BORDERS, linestyle=':')
+
+        plot_rgn      = gl.regions.get(filter_region)
+        ax.set_xlim(plot_rgn.get('lon_lim'))
+        ax.set_ylim(plot_rgn.get('lat_lim'))
+
+        ax.set_title('Data Coverage for Longitudinal Keogram')
+        ax.set_title('({!s})'.format(letters[ax_inx]),{'size':lbl_size},'left')
+
+        ################################################################################ 
+        # Plot GNSS dTEC Longitudinal Keogram ########################################### 
+        ax_inx  += 1
+        ax      = plt.subplot2grid((nrows,ncols),(3,col_1),colspan=col_1_span)
+        ax_31   = ax
+
+        result  = self.tec_obj.plot_keogram(ax,*keo_lat_lim,*keo_lon_lim,sDate,eDate,keotype='lon',map_ax=ax_30)
+        ax.grid(True,ls=':')
+        ax.set_xlim(sDate,eDate)
+
+        ax.set_ylabel('Longitude [deg]')
+
+        ax.set_xlabel('Time [UT]')
+        ax.set_title('({!s}) GNSS dTEC Longitudinal Keogram'.format(letters[ax_inx]),loc='left')
+        ax.set_title('')
+        ax.set_title('Lat Lim: {!s} to {!s}'.format(*keo_lat_lim),loc='right')
+
+        xticks  = ax.get_xticks()
+        xtls    = []
+        for xt in xticks:
+            hr = (mpl.dates.num2date(xt)).strftime('%H')
+            xtls.append(hr)
+        ax.set_xticks(xticks.tolist())
+        ax.set_xticklabels(xtls)
+
+        ################################################################################
+        # Plot GNSS dTEC Map ############################################################ 
+        ax_inx  += 1
+        ax = plt.subplot2grid((nrows,ncols),(4,col_0),
+                projection=ccrs.PlateCarree(),colspan=col_0_span)
+        ax_40       = ax
 
         frame       = datetime.datetime(2017,11,3,13,43)
         gps_dates   = self.tec_obj.get_dates()
@@ -585,16 +684,17 @@ class KeoHam(object):
         p   = mpl.patches.Rectangle((x0,y0),ww,hh,fill=False,zorder=50000,color='k',lw=2)
         ax.add_patch(p)
 
-        ax.set_title('GPS dTEC - {!s} UT'.format(gps_date.strftime('%H%M')))
-        ax.set_title('(e)',{'size':lbl_size},'left')
+        ax.set_title('GNSS dTEC - {!s} UT'.format(gps_date.strftime('%H%M')))
+        ax.set_title('({!s})'.format(letters[ax_inx]),{'size':lbl_size},'left')
 
 
         ################################################################################ 
-        # Plot GPS dTEC Time Series Data ############################################### 
+        # Plot GNSS dTEC Time Series Data ############################################### 
         gps_ts  = gps_time_series()
 
-        ax      = plt.subplot2grid((nrows,ncols),(2,col_1),colspan=col_1_span)
-        ax_21   = ax
+        ax_inx  += 1
+        ax      = plt.subplot2grid((nrows,ncols),(4,col_1),colspan=col_1_span)
+        ax_41   = ax
 
         xx = gps_ts['dt_hours']
         yy = gps_ts['gtid']
@@ -606,20 +706,21 @@ class KeoHam(object):
         ax.set_xlabel('Time [UT]')
         ax.set_ylabel('Median dTEC')
 
-        # Plot visually fitted sinusoid.
-        sinDct  = {'t0':13.1,'t1':18.25,'A':0.05,
-                   'DC':0,'T0':2.5,'phi':0.0}
-        tt,yy   = calc_sinusoid(**sinDct)
-        ax.plot(tt,yy,ls=':',lw=4,color='k')
+#        # Plot visually fitted sinusoid.
+#        sinDct  = {'t0':13.1,'t1':18.25,'A':0.05,
+#                   'DC':0,'T0':2.5,'phi':0.0}
+#        tt,yy   = calc_sinusoid(**sinDct)
+#        ax.plot(tt,yy,ls=':',lw=4,color='k')
 
-#        ax.set_title('GPS dTEC Time Series')
+#        ax.set_title('GNSS dTEC Time Series')
 #        ax.set_title('(f)',{'size':lbl_size},'left')
-        ax.set_title('(f) GPS dTEC Time Series',loc='left')
+        ax.set_title('({!s}) GNSS dTEC Time Series'.format(letters[ax_inx]),loc='left')
 
         ################################################################################ 
-        # Plot GPS dTEC Magnitude Spectrum ############################################# 
-        ax      = plt.subplot2grid((nrows,ncols),(3,col_1),colspan=col_1_span)
-        ax_31   = ax
+        # Plot GNSS dTEC Magnitude Spectrum ############################################# 
+        ax_inx  += 1
+        ax      = plt.subplot2grid((nrows,ncols),(5,col_1),colspan=col_1_span)
+        ax_51   = ax
 
         xx = gps_ts['T_hr_vec']
         yy = np.abs(gps_ts['X0'])
@@ -630,19 +731,23 @@ class KeoHam(object):
         ax.set_ylabel('|FFT{Median dTEC}|')
 
         ax.set_xlabel('Period [hr]')
-#        ax.set_title('GPS dTEC Magnitude Spectrum')
+#        ax.set_title('GNSS dTEC Magnitude Spectrum')
 #        ax.set_title('(g)',{'size':lbl_size},'left')
-        ax.set_title('(g) GPS dTEC Magnitude Spectrum',loc='left')
+        ax.set_title('({!s}) GNSS dTEC Magnitude Spectrum'.format(letters[ax_inx]),loc='left')
 
         ################################################################################ 
         # Cleanup Figure ############################################################### 
 
         adjust_map(ax_10,ax_00)
         adjust_map(ax_20,ax_00)
+        adjust_map(ax_30,ax_00)
+        adjust_map(ax_40,ax_00)
 
         gl.adjust_axes(ax_11,ax_01)
         gl.adjust_axes(ax_21,ax_01)
         gl.adjust_axes(ax_31,ax_01)
+        gl.adjust_axes(ax_41,ax_01)
+        gl.adjust_axes(ax_51,ax_01)
 
         dfmt    = '%Y %b %d %H%M UT'
         title   = '{!s} - {!s}'.format(sDate.strftime(dfmt), eDate.strftime(dfmt))
@@ -834,7 +939,7 @@ class KeoHam(object):
 
 
 if __name__ == '__main__':
-    output_dir  = os.path.join('output/ham_superdarn_tec')
+    output_dir  = os.path.join('output/ham_superdarn_tec_keogram')
     gl.prep_output({0:output_dir},clear=False,php=False)
 
     lat_lims=(  36.,  46., 10./4)
