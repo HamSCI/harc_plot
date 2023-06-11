@@ -132,7 +132,7 @@ class Omni():
             columns.append(symbol)
 
         # Place into dataframe.
-        df          = pd.DataFrame(data,columns=columns,dtype=np.float)
+        df          = pd.DataFrame(data,columns=columns,dtype=float)
 
         # Parse Dates and remove old date columns
         df.index    = df.apply(date_parser,axis=1)
