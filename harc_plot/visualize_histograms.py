@@ -132,7 +132,7 @@ class SrcCounts(object):
                 sc['sum']   = sc.sum(axis=1)
                 sum0        = sc.sum(axis=0)
                 sum0.name   = 'sum'
-                sc          = sc.append(sum0)
+                sc          = pd.concat([sc,pd.DataFrame([sum0])])
                 sc['pct']   = (sc['sum']/sc.loc['sum','sum']) * 100.
                 src_cnts[group][data_var]   = sc
 
