@@ -209,7 +209,7 @@ class SymH():
 
         # Time Vector in Seconds
         time_vec    = np.arange(xlim[0]*1440,xlim[1]*1440) * 60.
-        time_ser    = pd.Series(None,time_vec)
+        time_ser    = pd.Series(None,time_vec,dtype=float)
 
         storms_df    = pd.DataFrame()
         for ssc in self.ssc_list:
