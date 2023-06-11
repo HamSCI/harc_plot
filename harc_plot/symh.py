@@ -47,7 +47,7 @@ class SymH():
             df_tmp      = pd.read_csv(fpath,sep='\s+',header=14,parse_dates=[['DATE','TIME']])
             df_tmp      = df_tmp.set_index('DATE_TIME')
             df_tmp      = df_tmp[['ASY-D','ASY-H','SYM-D','SYM-H']].copy()
-            df          = df.append(df_tmp)
+            df          = pd.concat([df,df_tmp])
 
         df.sort_index(inplace=True)
         tf      = df[:] == 99999
@@ -78,7 +78,7 @@ class SymH():
         df = pd.DataFrame()
         for fpath in fpaths:
             dft = self._load_ssc(fpath)
-            df  = df.append(dft)
+            df  = pd.concat([df,dft])
 
         self.df_ssc     = df
         self.ssc_list   = df.index.to_pydatetime().tolist()
@@ -209,7 +209,7 @@ class SymH():
 
         # Time Vector in Seconds
         time_vec    = np.arange(xlim[0]*1440,xlim[1]*1440) * 60.
-        time_ser    = pd.Series(None,time_vec)
+        time_ser    = pd.Series(None,time_vec,dtype=float)
 
         storms_df    = pd.DataFrame()
         for ssc in self.ssc_list:
@@ -232,7 +232,7 @@ class SymH():
             data        = np.array([df_new.tolist()])
 
             this_df     = pd.DataFrame(data=data,index=[ssc],columns=time_vec)
-            storms_df    = storms_df.append(this_df)
+            storms_df   = pd.concat([storms_df,this_df])
         self.storms_df   = storms_df
 
     def plot_storms_df_sea(self,figsize=(15,8),clear=False):
