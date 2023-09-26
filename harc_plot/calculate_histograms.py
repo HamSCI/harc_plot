@@ -117,7 +117,7 @@ def main(run_dct):
             for xkey in xkeys:
                 dft[xkey]    = ld_inx*24 + dft[xkey]
 
-            df  = df.append(dft,ignore_index=True)
+            df  = pd.concat([df,dft],ignore_index=True)
 
         # Set Up Data Storage Containers
         data_das = {}

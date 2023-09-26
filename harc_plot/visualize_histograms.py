@@ -132,7 +132,7 @@ class SrcCounts(object):
                 sc['sum']   = sc.sum(axis=1)
                 sum0        = sc.sum(axis=0)
                 sum0.name   = 'sum'
-                sc          = sc.append(sum0)
+                sc          = pd.concat([sc,pd.DataFrame([sum0])])
                 sc['pct']   = (sc['sum']/sc.loc['sum','sum']) * 100.
                 src_cnts[group][data_var]   = sc
 
@@ -241,7 +241,7 @@ class Goeser(object):
             flares          = goes.find_flares(gd['data'],min_class='M1',window_minutes=60)
             flares['sat']   = sat_nr
             gd['flares']    = flares
-            flares_combined = flares_combined.append(flares).sort_index()
+            flares_combined = pd.concat([flares_combined,flares]).sort_index()
             gd['var_tags']  = ['B_AVG']
             gd['labels']    = ['GOES {!s}'.format(sat_nr)]
 
