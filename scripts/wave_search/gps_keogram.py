@@ -72,7 +72,7 @@ ax_00   = ax
 
 ax      =  ts_ax(0,'b')
 ax_01   = ax
-result  = tec_obj.plot_keogram(ax,*lat_lim,*lon_lim,sDate,eDate,keotype='lat',map_ax=ax_00)
+result  = tec_obj.plot_keogram_gridded(ax,*lat_lim,*lon_lim,sDate,eDate,keotype='lat',map_ax=ax_00)
 ax.set_title('')
 ax.set_title('(b) {!s}'.format(result['title']),{'size':lbl_size},'left')
 
@@ -83,7 +83,7 @@ ax_10   = ax
 
 ax      =  ts_ax(1,'d')
 ax_11   = ax
-result  = tec_obj.plot_keogram(ax,*lat_lim,*lon_lim,sDate,eDate,keotype='lon',map_ax=ax_10)
+result  = tec_obj.plot_keogram_gridded(ax,*lat_lim,*lon_lim,sDate,eDate,keotype='lon',map_ax=ax_10)
 ax.set_title('')
 ax.set_title('(d) {!s}'.format(result['title']),{'size':lbl_size},'left')
 

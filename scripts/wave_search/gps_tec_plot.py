@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import h5py
 import os
@@ -67,7 +68,9 @@ def set_backgroundcolor(ax, color):
         lh.legendPatch.set_facecolor(color)
 
 class TecPlotter(object):
-    def __init__(self,date,ww=241,ee=30,nn=1,dt=60.,wgec=False,
+#    def __init__(self,date,ww=241,ee=30,nn=1,dt=60.,wgec=False,
+    def __init__(self,date,ww=241,ee=10,nn=1,dt=60.,wgec=False,
+            elev_min=30,
 #    def __init__(self,date,ww=121,ee=15,nn=1,dt=60.,wgec=False,
             prefix  = 'data/gps_tec_haystack', prefixb = 'output-gpsTec'):
         """
@@ -77,6 +80,8 @@ class TecPlotter(object):
         dt      = 60.0
         prefix  = 'data/gps_tec_haystack'        # Data directory
         prefixb = 'output-gpsTec'      # Output directory
+
+        elev_min = 30 # Minimum elevation to be applied after data file has been loaded. Requires new format data file.
         """
 
         date    = datetime.datetime(date.year,date.month,date.day)
@@ -102,8 +107,15 @@ class TecPlotter(object):
         tecs    = tecs[gidx,:]
         tod     = (tecs[:,0]-(day-1.0))*24.0*3600.0
 
+        if elev_min is not None:
+            tmp_inx = np.where(tecs[:,8] >= elev_min)[0]
+            tecs    = tecs[tmp_inx,:]
+            tod     = tod[tmp_inx]
+
         print('min(tecs) = {!s}'.format(np.min(tecs[:,0])))
         print('max(tecs) = {!s}'.format(np.max(tecs[:,0])))
+        print('min(elev) = {!s}'.format(np.min(tecs[:,8])))
+        print('max(elev) = {!s}'.format(np.max(tecs[:,8])))
 
         h.close()
 
@@ -114,6 +126,7 @@ class TecPlotter(object):
         self.ut0        = ut0
         self.ww         = ww
         self.ee         = ee
+        self.elev_min   = elev_min
         self.dt         = dt
         self.wgec       = wgec
         self.prefixb    = prefixb
@@ -171,6 +184,95 @@ class TecPlotter(object):
         self.mean_dtecs     = mean_dtecs
         self.std_dtecs      = std_dtecs
         self.n_dtecs        = n_dtecs
+
+    def plot_keogram_gridded(self,ax,lat_0,lat_1,lon_0,lon_1,sDate=None,eDate=None,tdelta=None,keotype='lat',
+           map_ax=None,vx=-0.2,vy=0.2,rr=0,zz=10,cmap='jet'):
+        """
+        Plot a keogram of GNSS TEC Data
+        """
+        dates   = self.get_dates(sDate=sDate,eDate=eDate,tdelta=tdelta)
+
+        tecs    = self.tecs
+        day     = self.day
+        ut0     = self.ut0
+        dt      = self.dt
+        tod     = self.tod
+
+        keo_xx      = []
+        keo_yy      = np.array([])
+        keo_dtecs   = np.array([])
+        keo_lats    = np.array([])
+        keo_lons    = np.array([])
+
+        dy  = 0.20
+        if keotype == 'lat':
+            yy          = np.arange(lat_0,lat_1+dy,dy)
+        elif keotype == 'lon':
+            yy          = np.arange(lon_0,lon_1+dy,dy)
+
+        nx      = len(dates)
+        ny      = len(yy)
+        ZZ      = np.zeros((nx,ny))*np.nan
+
+        for date_inx,date in tqdm.tqdm(enumerate(dates),dynamic_ncols=True,total=len(dates),desc='{!s} GNSS Keogram'.format(keotype)):
+            inx                 = self.date2inx(date)
+
+            pidx                = np.where( (tod  > dt*inx) & (tod < (dt*inx+dt)) )[0]           # Time of Day Index
+            tec_lats    = tecs[pidx,1]
+            tec_lons    = tecs[pidx,2]
+            dtecs       = tecs[pidx,3]
+
+            # Filter out unneeded lats/lons.
+            tf          = np.logical_and(tec_lats >= lat_0, tec_lats < lat_1)
+            tec_lats    = tec_lats[tf]
+            tec_lons    = tec_lons[tf]
+            dtecs       = dtecs[tf]
+
+            tf          = np.logical_and(tec_lons >= lon_0, tec_lons < lon_1)
+            tec_lats    = tec_lats[tf]
+            tec_lons    = tec_lons[tf]
+            dtecs       = dtecs[tf]
+
+            if keotype == 'lat':
+                for y_inx,y in enumerate(yy):
+                    tf                  = np.logical_and(tec_lats >= y, tec_lats < y+dy)
+                    dtec_avg            = np.mean(dtecs[tf])
+                    ZZ[date_inx,y_inx]  = dtec_avg
+            elif keotype == 'lon':
+                for y_inx,y in enumerate(yy):
+                    tf                  = np.logical_and(tec_lons >= y, tec_lons < y+dy)
+                    dtec_avg            = np.mean(dtecs[tf])
+                    ZZ[date_inx,y_inx]  = dtec_avg
+
+            keo_dtecs   = np.concatenate((keo_dtecs,dtecs))
+            keo_lats    = np.concatenate((keo_lats,tec_lats))
+            keo_lons    = np.concatenate((keo_lons,tec_lons))
+
+#        mpbl        = ax.scatter(keo_xx,keo_yy,c=keo_dtecs,vmin=vx,vmax=vy,cmap=cmap,edgecolors='none',rasterized=True)
+        XX,YY       = np.meshgrid(mpl.dates.date2num(dates),yy)
+        mpbl        = ax.pcolormesh(XX,YY,ZZ.T,vmin=vx,vmax=vy,cmap=cmap,shading='auto')
+
+        if map_ax is not None:
+            map_ax.scatter(keo_lons,keo_lats,c=keo_dtecs,vmin=vx,vmax=vy,cmap=cmap,edgecolors='none',rasterized=True)
+
+        sDate_str = sDate.strftime('%d %b %Y')
+        if keotype == 'lat':
+            ax.set_ylabel('Latitude [deg]')
+            ax.set_ylim(lat_0,lat_1)
+            title = ' - '.join([sDate_str,'Lon Lim: {:.0f} to {:.0f}'.format(lon_0,lon_1)])
+            ax.set_title(title)
+        elif keotype == 'lon':
+            ax.set_ylabel('Longitude [deg]')
+            ax.set_ylim(lon_0,lon_1)
+            title = ' - '.join([sDate_str,'Lat Lim: {:.0f} to {:.0f}'.format(lat_0,lat_1)])
+            ax.set_title(title)
+
+        ax.set_xlim(sDate,eDate)
+        ax.set_xlabel('Time [UT]')
+
+        cbar = plt.colorbar(mpbl,shrink=0.8,pad=0.075,cax=None,extend='both')
+        cbar.set_label('$\Delta$TECu')#,size='medium')
+        return {'ax':ax,'cbar':cbar,'title':title}
 
     def plot_keogram(self,ax,lat_0,lat_1,lon_0,lon_1,sDate=None,eDate=None,tdelta=None,keotype='lat',
            map_ax=None,vx=-0.2,vy=0.2,rr=0,zz=10,cmap='jet'):

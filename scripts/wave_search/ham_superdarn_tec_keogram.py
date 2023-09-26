@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import scipy as sp
+from scipy import signal
 
 import matplotlib as mpl
 mpl.use('Agg')
@@ -256,12 +257,42 @@ def gps_time_series(key='gtidus',hr_lim = (12,24)):
     # Compute Period Vector in Hours
     T_hr_vec = 1./(f_vec*3600.)
 
+    # Compute band-pass filtered signal.
+    Wn_hr = (2, 4)
+    Wn    = 1./((np.array(Wn_hr)[::-1])*3600)
+    btype = 'bandpass'  # Choose 'low' or 'high'
+    b, a = signal.butter(4, Wn, btype, fs=fs)
+    w, h = signal.freqz(b, a)
+    f = (fs/2)*(w/(np.pi))
+    T_hr = (1/f)/3600.
+    gtid_filt   = signal.filtfilt(b,a,gtid_detrend)
+
+#    plt.subplot(211)
+#    plt.plot(T_hr, 20 * np.log10(abs(h)))
+#    plt.title('Butterworth filter frequency response')
+#    plt.xlabel('Period [Hr]')
+#    plt.ylabel('Amplitude [dB]')
+#    plt.grid(which='both', axis='both')
+#    plt.xlim(0,4)
+#    plt.ylim(-100,0)
+#
+#    plt.subplot(212)
+#    plt.plot(T_hr, np.unwrap(np.angle(h)))
+#    plt.title('Butterworth filter frequency response')
+#    plt.xlabel('Period [Hr]')
+#    plt.ylabel('Phase [rad]')
+#    plt.grid(which='both', axis='both')
+#    plt.xlim(0,4)
+#    plt.tight_layout()
+#    plt.show()
+
     # Save important variables to dictionary and return.
     result  = {}
     result['dts']                   = dts
     result['dt_hours']              = dt_hours
     result['gtid']                  = gtid
     result['gtid_detrend']          = gtid_detrend
+    result['gtid_filt']             = gtid_filt
     result['f_vec']                 = f_vec
     result['T_hr_vec']              = T_hr_vec
     result['X0']                    = X0
@@ -600,7 +631,7 @@ class KeoHam(object):
         ax      = plt.subplot2grid((nrows,ncols),(2,col_1),colspan=col_1_span)
         ax_21   = ax
 
-        result  = self.tec_obj.plot_keogram(ax,*keo_lat_lim,*keo_lon_lim,sDate,eDate,keotype='lat',map_ax=ax_20)
+        result  = self.tec_obj.plot_keogram_gridded(ax,*keo_lat_lim,*keo_lon_lim,sDate,eDate,keotype='lat',map_ax=ax_20)
 
         ax.grid(True,ls=':')
         ax.set_xlim(sDate,eDate)
@@ -642,7 +673,7 @@ class KeoHam(object):
         ax      = plt.subplot2grid((nrows,ncols),(3,col_1),colspan=col_1_span)
         ax_31   = ax
 
-        result  = self.tec_obj.plot_keogram(ax,*keo_lat_lim,*keo_lon_lim,sDate,eDate,keotype='lon',map_ax=ax_30)
+        result  = self.tec_obj.plot_keogram_gridded(ax,*keo_lat_lim,*keo_lon_lim,sDate,eDate,keotype='lon',map_ax=ax_30)
         ax.grid(True,ls=':')
         ax.set_xlim(sDate,eDate)
 
@@ -698,7 +729,14 @@ class KeoHam(object):
 
         xx = gps_ts['dt_hours']
         yy = gps_ts['gtid']
-        ax.plot(xx,yy)
+
+        ax.plot(xx,yy,label='Unfiltered')
+
+        yy = gps_ts['gtid_filt']
+        ax.plot(xx,yy,ls=':',lw=4,label='2-4 hr Bandpass')
+
+#        ax.legend('upper left')
+
         ax.set_xlim(xlim)
         ax.set_ylim(-0.1,0.1)
         ax.grid(True,ls=':')

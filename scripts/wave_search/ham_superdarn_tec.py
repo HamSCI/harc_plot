@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import scipy as sp
+from scipy import signal
 
 import matplotlib as mpl
 mpl.use('Agg')
@@ -34,6 +35,7 @@ from harc_plot import geopack
 
 import pydarnio
 import pydarn
+from pydarn import RangeEstimation
 
 import gps_tec_plot
 
@@ -190,7 +192,7 @@ def load_psk(date_str,rgc_lim=None,filter_region=None,filter_region_kind='mids',
 
 def gps_time_series(key='gtidus',hr_lim = (12,24)):
     """
-    Load in and process pickle file with GPS dTEC time series information.
+    Load in and process pickle file with GNSS dTEC time series information.
     """
     fpath = 'data/gps_tec_haystack/20171103-20171104_gtidus_mids.p'
     with open(fpath,'rb') as fl:
@@ -232,7 +234,7 @@ def gps_time_series(key='gtidus',hr_lim = (12,24)):
     line    = regress.slope*dt_hours + regress.intercept
     gtid_detrend = gtid - line
 
-    # Hanning Window GPS dTEC data.
+    # Hanning Window GNSS dTEC data.
     han_win         = np.hanning(len(gtid_detrend))
     gtid_han        = han_win*gtid_detrend
 
@@ -253,12 +255,43 @@ def gps_time_series(key='gtidus',hr_lim = (12,24)):
     # Compute Period Vector in Hours
     T_hr_vec = 1./(f_vec*3600.)
 
+    # Compute band-pass filtered signal.
+    Wn_hr = (2, 4)
+    Wn    = 1./((np.array(Wn_hr)[::-1])*3600)
+    btype = 'bandpass'  # Choose 'low' or 'high'
+    b, a = signal.butter(4, Wn, btype, fs=fs)
+    w, h = signal.freqz(b, a)
+    f = (fs/2)*(w/(np.pi))
+    T_hr = (1/f)/3600.
+    gtid_filt   = signal.filtfilt(b,a,gtid_detrend)
+
+#    plt.subplot(211)
+#    plt.plot(T_hr, 20 * np.log10(abs(h)))
+#    plt.title('Butterworth filter frequency response')
+#    plt.xlabel('Period [Hr]')
+#    plt.ylabel('Amplitude [dB]')
+#    plt.grid(which='both', axis='both')
+#    plt.xlim(0,4)
+#    plt.ylim(-100,0)
+#
+#    plt.subplot(212)
+#    plt.plot(T_hr, np.unwrap(np.angle(h)))
+#    plt.title('Butterworth filter frequency response')
+#    plt.xlabel('Period [Hr]')
+#    plt.ylabel('Phase [rad]')
+#    plt.grid(which='both', axis='both')
+#    plt.xlim(0,4)
+#    plt.tight_layout()
+#    plt.show()
+
+
     # Save important variables to dictionary and return.
     result  = {}
     result['dts']                   = dts
     result['dt_hours']              = dt_hours
     result['gtid']                  = gtid
     result['gtid_detrend']          = gtid_detrend
+    result['gtid_filt']             = gtid_filt
     result['f_vec']                 = f_vec
     result['T_hr_vec']              = T_hr_vec
     result['X0']                    = X0
@@ -371,7 +404,7 @@ class KeoHam(object):
         if strip_time(sDate) != strip_time(eDate):
             dates   = dates[:-1]
 
-        df  = pd.DataFrame()
+        dfs = []
         for dt_inx,dt in enumerate(tqdm.tqdm(dates,dynamic_ncols=True)):
             h5_key  = 'df'
             h5_name = dt.strftime('%Y%m%d') + '.data.bz2.h5'
@@ -405,7 +438,9 @@ class KeoHam(object):
 
             dft[xkey]    = dt_inx*24 + dft[xkey]
 
-            df  = df.append(dft,ignore_index=True)
+            dfs.append(dft)
+
+        df  = pd.concat(dfs,ignore_index=True)
 
         df_0    = df.copy()
 
@@ -523,8 +558,6 @@ class KeoHam(object):
         tf = fit_to_csv['tfreq'] > 0
         fit_to_csv = fit_to_csv[tf].copy()
 
-        import ipdb; ipdb.set_trace()
-
         hdw_data    = pydarn.read_hdw_file(radar,sDate)
 
         ax = plt.subplot2grid((nrows,ncols),(1,col_0),
@@ -544,12 +577,15 @@ class KeoHam(object):
         sd_cax_pos      = list(sd_cax.get_position().bounds)
 
         # Plot visually fitted sinusoid.
-        sinDct  = {'t0':13.1+0.2,'t1':18.25+0.2,'A':200,
-                   'DC':950,'T0':2.5,'phi':0.}
+#        sinDct  = {'t0':13.1+0.2,'t1':18.25+0.2,'A':200,
+#                   'DC':950,'T0':2.5,'phi':0.}
+
+        sinDct  = {'t0':13.1+0.2,'t1':18.25+0.2,'A':150,
+                   'DC':1050,'T0':2.5,'phi':0.}
         tt,yy   = calc_sinusoid(**sinDct)
         s0      = datetime.datetime(sDate.year,sDate.month,sDate.day)
         ttd     = [s0+datetime.timedelta(hours=x) for x in tt]
-        ax.plot(ttd,yy,ls=':',lw=4,color='k')
+        ax.plot(ttd,yy,ls=':',lw=6,color='red')
 
         ax.set_ylabel('Slant Range [km]')
         ax.set_ylim(ylim)
@@ -562,7 +598,7 @@ class KeoHam(object):
         ax.set_title('(d) {!s} SuperDARN Radar Beam {!s}'.format(radar.upper(),beam),loc='left')
 
         ################################################################################
-        # Plot GPS dTEC Map ############################################################ 
+        # Plot GNSS dTEC Map ############################################################ 
         ax = plt.subplot2grid((nrows,ncols),(2,col_0),
                 projection=ccrs.PlateCarree(),colspan=col_0_span)
         ax_20       = ax
@@ -585,12 +621,12 @@ class KeoHam(object):
         p   = mpl.patches.Rectangle((x0,y0),ww,hh,fill=False,zorder=50000,color='k',lw=2)
         ax.add_patch(p)
 
-        ax.set_title('GPS dTEC - {!s} UT'.format(gps_date.strftime('%H%M')))
+        ax.set_title('GNSS dTEC - {!s} UT'.format(gps_date.strftime('%H%M')))
         ax.set_title('(e)',{'size':lbl_size},'left')
 
 
         ################################################################################ 
-        # Plot GPS dTEC Time Series Data ############################################### 
+        # Plot GNSS dTEC Time Series Data ############################################### 
         gps_ts  = gps_time_series()
 
         ax      = plt.subplot2grid((nrows,ncols),(2,col_1),colspan=col_1_span)
@@ -598,7 +634,13 @@ class KeoHam(object):
 
         xx = gps_ts['dt_hours']
         yy = gps_ts['gtid']
-        ax.plot(xx,yy)
+        line1, = ax.plot(xx,yy,label='Unfiltered')
+
+        yy = gps_ts['gtid_filt']
+        line2, = ax.plot(xx,yy,ls=':',lw=4,label='2-4 hr Bandpass Filter')
+
+        ax.legend(handles=[line1,line2],loc='upper right')
+
         ax.set_xlim(xlim)
         ax.set_ylim(-0.1,0.1)
         ax.grid(True,ls=':')
@@ -606,18 +648,18 @@ class KeoHam(object):
         ax.set_xlabel('Time [UT]')
         ax.set_ylabel('Median dTEC')
 
-        # Plot visually fitted sinusoid.
-        sinDct  = {'t0':13.1,'t1':18.25,'A':0.05,
-                   'DC':0,'T0':2.5,'phi':0.0}
-        tt,yy   = calc_sinusoid(**sinDct)
-        ax.plot(tt,yy,ls=':',lw=4,color='k')
+#        # Plot visually fitted sinusoid.
+#        sinDct  = {'t0':13.1,'t1':18.25,'A':0.05,
+#                   'DC':0,'T0':2.5,'phi':0.0}
+#        tt,yy   = calc_sinusoid(**sinDct)
+#        ax.plot(tt,yy,ls=':',lw=4,color='k')
 
-#        ax.set_title('GPS dTEC Time Series')
+#        ax.set_title('GNSS dTEC Time Series')
 #        ax.set_title('(f)',{'size':lbl_size},'left')
-        ax.set_title('(f) GPS dTEC Time Series',loc='left')
+        ax.set_title('(f) GNSS dTEC Time Series',loc='left')
 
         ################################################################################ 
-        # Plot GPS dTEC Magnitude Spectrum ############################################# 
+        # Plot GNSS dTEC Magnitude Spectrum ############################################# 
         ax      = plt.subplot2grid((nrows,ncols),(3,col_1),colspan=col_1_span)
         ax_31   = ax
 
@@ -630,9 +672,9 @@ class KeoHam(object):
         ax.set_ylabel('|FFT{Median dTEC}|')
 
         ax.set_xlabel('Period [hr]')
-#        ax.set_title('GPS dTEC Magnitude Spectrum')
+#        ax.set_title('GNSS dTEC Magnitude Spectrum')
 #        ax.set_title('(g)',{'size':lbl_size},'left')
-        ax.set_title('(g) GPS dTEC Magnitude Spectrum',loc='left')
+        ax.set_title('(g) GNSS dTEC Magnitude Spectrum',loc='left')
 
         ################################################################################ 
         # Cleanup Figure ############################################################### 
@@ -670,7 +712,9 @@ class KeoHam(object):
 #        ax.add_feature(cartopy.feature.RIVERS)
         ax.set_title('')
 
-        beams_lats, beams_lons  = pydarn.radar_fov(hdw_data.stid,coords='geo',date=sDate)
+#        beams_lats, beams_lons  = pydarn.radar_fov(hdw_data.stid,coords='geo',date=sDate)
+        beams_lats, beams_lons  = pydarn.utils.coordinates.geo_coordinates(hdw_data.stid, beams = hdw_data.beams, gates=[0,hdw_data.gates], RangeEstimation=RangeEstimation.GSMR)
+
         fan_shape           = beams_lons.shape
 
         # FOV Outline ##################################################################
@@ -825,10 +869,13 @@ class KeoHam(object):
         ax.set_xlim(xlim)
 
         # Plot visually fitted sinusoid.
-        sinDct  = {'t0':13.1,'t1':18.25,'A':200,
+#        sinDct  = {'t0':13.1,'t1':18.25,'A':200,
+#                   'DC':1050,'T0':2.5,'phi':0.0}
+
+        sinDct  = {'t0':13.1,'t1':18.25+0.2,'A':150,
                    'DC':1050,'T0':2.5,'phi':0.0}
         tt,yy   = calc_sinusoid(**sinDct)
-        ax.plot(tt,yy,ls=':',lw=4,color='w')
+        ax.plot(tt,yy,ls=':',lw=6,color='red')
 
         return {'data':data,'avg_dist':avg_dist,'cbar':result.colorbar}
 

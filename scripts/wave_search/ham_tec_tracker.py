@@ -410,11 +410,11 @@ class KeoHam(object):
         # Plot GPS TEC Map #############################################################
         cax         = fig.add_subplot(444)
         ax          = fig.add_subplot(3,1,(2,3),projection=ccrs.PlateCarree())
-#        tec_plot    = self.tec_obj.plot_tec_ax(gps_date,zz=20,title=False,
-#                        ax=ax,maplim_region=filter_region,cax=cax)
-
-        tec_plot    = self.tec_obj.plot_tec_gridded_ax(gps_date,param='mean_dtecs',title=False,
+        tec_plot    = self.tec_obj.plot_tec_ax(gps_date,zz=20,title=False,
                         ax=ax,maplim_region=filter_region,cax=cax)
+
+#        tec_plot    = self.tec_obj.plot_tec_gridded_ax(gps_date,param='mean_dtecs',title=False,
+#                        ax=ax,maplim_region=filter_region,cax=cax)
 
         # Draw line showing wavefront and calculate wavelength and direction.
         lat_0,lon_0 = (44.0, -93.)
