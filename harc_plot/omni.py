@@ -24,9 +24,12 @@ def date_parser(row):
     return dt
 
 class Omni():
-    def __init__(self):
-        self._load_omni()
-        self._load_symh()
+#    def __init__(self):       # Comment out. Kukkai, 20231002
+#        self._load_omni()     # Comment out. Kukkai, 20231002
+#        self._load_symh()     # Comment out. Kukkai, 20231002
+    def __init__(self,years=[2016,2017]):   # Add year parameter. Kukkai, 20231002
+        self._load_omni()             
+        self._load_symh(years=years)        # Pass years parameter. Kukkai, 20231002 
 
     def _load_omni(self,omni_csv='data/omni/omni_data_reduced.txt.bz2'):
         """
@@ -152,7 +155,7 @@ class Omni():
 
         self.df         = df 
 
-    def _load_symh(self,years=[2016,2017]):
+    def _load_symh(self,years=[2012,2013]):
         """
         Create and load SymH data/object.
         """
@@ -186,6 +189,8 @@ class Omni():
             yy      = df['Dst_nT'].tolist()
             ylabel  = 'Dst [nT]'
         else:
+            print('symH df')
+            print(self.df_symasy)
             xx      = self.df_symasy.index
             yy      = self.df_symasy[dst_param].tolist()
             xlim    = (sTime,eTime)

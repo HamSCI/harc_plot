@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""
+Script covering the entire histogram workflow process.
+"""
+import os
+import datetime
+import bz2
+import pickle
+
+import hashlib
+
+import numpy as np
+import pandas as pd
+
+import harc_plot
+from harc_plot import visualize_histograms as vh
+
+
+def hash_rd(run_dict):
+    """
+    Quick hash of the run dictionary for checking that pickle files are up-to-date.
+    """
+    rd_ = repr(sorted(run_dict.items())).encode('utf-8')
+    m   = hashlib.sha1()
+    m.update(rd_)
+    return m.hexdigest()
+
+
+def load_nc_cache(rd,reset_cache=False):
+    rd_hash     = hash_rd(rd)
+    sTime_str   = rd['sTime'].strftime('%Y%m%d')
+    eTime_str   = rd['eTime'].strftime('%Y%m%d')
+    fname       = '{!s}-{!s}.{!s}.p.bz2'.format(sTime_str,eTime_str,rd_hash)
+
+    cache_dir   = os.path.join(rd['baseout_dir'],'cache')
+    fpath       = os.path.join(cache_dir,fname)
+
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+
+
+    if os.path.exists(fpath) and (reset_cache is True):
+        os.remove(fpath)
+
+    if os.path.exists(fpath):
+        print('Loading cached file: {!s}'.format(fpath))
+        with bz2.BZ2File(fpath,'rb') as fl:
+            nc_obj = pickle.load(fl)
+    else:
+        nc_obj              = vh.ncLoader(**rd)
+        nc_obj.rd_original  = rd
+
+        print('Saving cached file: {!s}'.format(fpath))
+        with bz2.BZ2File(fpath,'wb') as fl:
+            pickle.dump(nc_obj,fl)
+
+    return nc_obj
+
+
+def main(data_source_name='WSPRNet_RBN'):
+    diurnal = 'night'
+
+    region          = 'World'
+    run_name        = '-'.join([region,data_source_name,'test'])
+#    run_name        = region
+    data_dir        = os.path.join('data/solarcycle_3hr_250km/histograms',run_name)
+    plot_dir        = os.path.join('output/galleries/solarcycle_3hr_250km',run_name)
+
+    xkeys       = ['slt_mid','ut_hrs']
+#    xkeys       = ['slt_mid']
+#    sTime       = datetime.datetime(2009,1,1)
+#    eTime       = datetime.datetime(2020,1,1)
+
+    sTime       = datetime.datetime(2015,1,1)
+    eTime       = datetime.datetime(2015,2,1)
+
+    rgc_lim     = (0, 10000)
+
+    #geo_env     = harc_plot.GeospaceEnv()
+    geo_env = None
+
+    # Visualization ################################################################
+    ### Visualize Observations
+    rd = {}
+    rd['srcs']                  = os.path.join(data_dir,'*.data.nc.bz2')
+    rd['baseout_dir']           = plot_dir
+    rd['sTime']                 = sTime
+    rd['eTime']                 = eTime
+    rd['plot_region']           = region
+    rd['geospace_env']          = geo_env
+    rd['plot_sza']              = False
+    rd['plot_trend']            = True 
+    rd['plot_kpsymh']           = False
+    rd['plot_goes']             = False
+    rd['plot_f107']             = True
+    rd['log_z']                 = False
+    rd['band_keys']             = [28, 21, 14, 7, 3, 1]
+    rd['xkeys']                 = xkeys
+
+    nc      = load_nc_cache(rd,reset_cache=False)
+
+    # Time Series ##################################################################
+    ts_slt      = nc.datasets['time_series']['slt_mid']                 # Pull out the dataset of interest.
+    attrs       = ts_slt['spot_density'].attrs
+    slt_mids    = ts_slt['slt_mid'] % 24                                # Modulo 24 so we see what hour of the day it actually is
+
+    if diurnal == 'night':
+        tf          = np.logical_or(slt_mids >=18, slt_mids < 6)            # Find where it is night only.
+        ts_slt      = ts_slt.loc[{'slt_mid': ts_slt['slt_mid'][tf]}].copy() # Select the night times in the data array.
+
+        ts_slt      = ts_slt.rolling({'slt_mid':4}).sum()                   # Rolling sum of every 4 points.
+
+        tf          = (ts_slt['slt_mid']%24) == 18                          # Only keep those data points starting at LT == 18 hr.
+        ts_slt      = ts_slt.loc[{'slt_mid': ts_slt['slt_mid'][tf]}].copy()
+
+    elif diurnal == 'day':
+        tf          = np.logical_and(slt_mids >=6, slt_mids < 18)            # Find where it is day only.
+        ts_slt      = ts_slt.loc[{'slt_mid': ts_slt['slt_mid'][tf]}].copy()  # Select the night times in the data array.
+
+        ts_slt      = ts_slt.rolling({'slt_mid':4}).sum()                    # Rolling sum of every 4 points.
+
+        tf          = (ts_slt['slt_mid']%24) == 6                            # Only keep those data points starting at LT == 6 hr.
+        ts_slt      = ts_slt.loc[{'slt_mid': ts_slt['slt_mid'][tf]}].copy()
+
+    ts_slt['spot_density'].attrs = attrs 
+    nc.datasets['time_series']['slt_mid'] = ts_slt                          # Put the data array back into the plotting object.
+
+    # Maps #########################################################################
+    map_slt      = nc.datasets['map']['slt_mid']                        # Pull out the dataset of interest.
+    attrs       = map_slt['spot_density'].attrs
+    slt_mids    = map_slt['slt_mid'] % 24                                # Modulo 24 so we see what hour of the day it actually is
+
+    if diurnal == 'night':
+        tf          = np.logical_or(slt_mids >=18, slt_mids < 6)            # Find where it is night only.
+        map_slt      = map_slt.loc[{'slt_mid': map_slt['slt_mid'][tf]}].copy() # Select the night times in the data array.
+
+        map_slt      = map_slt.rolling({'slt_mid':4}).sum()                   # Rolling sum of every 4 points.
+
+        tf          = (map_slt['slt_mid']%24) == 18                          # Only keep those data points starting at LT == 18 hr.
+        map_slt      = map_slt.loc[{'slt_mid': map_slt['slt_mid'][tf]}].copy()
+
+    elif diurnal == 'day':
+        tf          = np.logical_and(slt_mids >=6, slt_mids < 18)            # Find where it is day only.
+        map_slt      = map_slt.loc[{'slt_mid': map_slt['slt_mid'][tf]}].copy()  # Select the night times in the data array.
+
+        map_slt      = map_slt.rolling({'slt_mid':4}).sum()                    # Rolling sum of every 4 points.
+
+        tf          = (map_slt['slt_mid']%24) == 6                            # Only keep those data points starting at LT == 6 hr.
+        map_slt      = map_slt.loc[{'slt_mid': map_slt['slt_mid'][tf]}].copy()
+
+    map_slt['spot_density'].attrs = attrs 
+    nc.datasets['map']['slt_mid'] = map_slt                          # Put the data array back into the plotting object.
+
+
+    fpaths  = nc.plot(**rd)
+
+    print()
+    if fpaths is not None:
+        for fpath in fpaths:
+            print('http://arrow.lan/~w2naf/code/harc_plot/scripts/agu2020_solarcycle/'+fpath)
+    print()
+
+if __name__ == '__main__':
+#    dsns = data_src_names = []
+#    dsns.append('WSPRNet')
+#    dsns.append('RBN')
+#    dsns.append('WSPRNet_RBN')
+#    for dsn in data_src_names:
+#        main(dsn)
+
+    main('WSPRNet_RBN')
+
+
+import ipdb; ipdb.set_trace()

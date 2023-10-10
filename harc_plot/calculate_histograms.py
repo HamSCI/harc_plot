@@ -21,7 +21,7 @@ def calc_histogram(frame,attrs):
     ylim    = attrs['ylim']
     dy      = attrs['dy']
 
-    xbins   = gl.get_bins(xlim,dx)
+    xbins   = gl.get_bins(xlim,dx)[:-1]
     ybins   = gl.get_bins(ylim,dy)
 
     if len(frame) > 2:
@@ -93,7 +93,7 @@ def main(run_dct):
     if strip_time(sDate) != strip_time(eDate):
         dates   = dates[:-1]
 
-    for dt in tqdm.tqdm(dates):
+    for dt in tqdm.tqdm(dates,dynamic_ncols=True):
         nc_name = dt.strftime('%Y%m%d') + '.data.nc'
         nc_path = os.path.join(ncs_path,nc_name)
 
@@ -112,7 +112,7 @@ def main(run_dct):
                             filter_region=filter_region,filter_region_kind=filter_region_kind)
 
             if dft is None:
-                print('No data for {!s}'.format(ld_str))
+                tqdm.tqdm.write('No data for {!s}'.format(ld_str))
                 continue
             for xkey in xkeys:
                 dft[xkey]    = ld_inx*24 + dft[xkey]
@@ -181,8 +181,8 @@ def main(run_dct):
                 map_attrs['dy']             = 1
 
                 map_tmp = []
-                for tb_inx,tb_0 in enumerate(time_bins[:-1]):
-                    tb_1                = time_bins[tb_inx+1]
+                for tb_inx,tb_0 in enumerate(time_bins):
+                    tb_1                = time_bins[tb_inx] + xb_size_min/60.
                     tf                  = np.logical_and(frame[xkey] >= tb_0, frame[xkey] < tb_1)
                     tb_frame            = frame[tf].copy()
                     result              = calc_histogram(tb_frame,map_attrs)

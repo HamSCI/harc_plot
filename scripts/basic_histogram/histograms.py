@@ -12,12 +12,14 @@ data_dir    = os.path.join('data/histograms',run_name)
 plot_dir    = os.path.join('output/galleries/histograms',run_name)
 params      = ['spot_density']
 xkeys       = ['ut_hrs','slt_mid']
-sTime       = datetime.datetime(2017,7,1)
-eTime       = datetime.datetime(2017,7,2)
+sTime       = datetime.datetime(2016,8,26)
+eTime       = datetime.datetime(2016,8,27)
 region      = run_name
 rgc_lim     = (0, 10000)
 
-geo_env     = harc_plot.GeospaceEnv()
+# geo_env     = harc_plot.GeospaceEnv()  # Comment out and add 2 following lines. Kukkai, 20231002
+years = [sTime.year + dy for dy in range(eTime.year-sTime.year+1)]   # Added. Kukkai, 20231002
+geo_env     = harc_plot.GeospaceEnv(years=years)                     # Added. Kukkai, 20231002
 
 # Create histogram NetCDF Files ################################################
 rd  = {}

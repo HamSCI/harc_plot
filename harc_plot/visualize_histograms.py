@@ -1,7 +1,7 @@
 import os
 import glob
 import datetime
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 import string
 import ast
 
@@ -153,6 +153,21 @@ class SrcCounts(object):
 
         return lines
 
+    def get_text_sources_only(self,group,data_var):
+        
+        sc      = self.src_cnts[group][data_var]
+        srcs    = list(sc.index)
+        srcs.remove('sum')
+        srcs.sort()
+
+        lines   = []
+        lines.append('Data Sources:')
+        for src in srcs:
+            line    = '   {!s}'.format(src)
+            lines.append(line)
+
+        return lines
+
 def center_of_mass(da,c0,c1):
     """
     Calculate the center of mass of a 2D xarray.
@@ -168,13 +183,12 @@ def center_of_mass(da,c0,c1):
 class Sza(object):
     def __init__(self,xdct,sTime,eTime):
         """
-        Calculate percentages of data sources.
-        xdct: dictionary of datasets that have src_cnt attributes.
+        Determine the lat/lon for calculating the solar zenith angle
+        based on the center-of-mass of spot locations.
         """
         sza_dct = {}
-        # Add up the sources for each day.
         for group,ds in xdct.items():
-            for data_var in ds.data_vars:
+            for data_var in ds.keys():
                 da = ds[data_var].sum('freq_MHz')
 
                 for dim in da.dims:
@@ -352,43 +366,28 @@ class ncLoader(object):
                     ds.coords[group]        = time_vec
                     ds.coords['ut_sTime']   = [self.sTime]
 
-                    if prefix == 'map':
-                        dt_vec      = np.array([dt_0 + pd.Timedelta(hours=x) for x in hrs])
-                        tf          = np.logical_and(dt_vec >= self.sTime, dt_vec < self.eTime)
-                        tmp_map_ds  = ds[{group:tf}].sum(group,keep_attrs=True)
-
-                        map_ds      = dss[prefix].get(group)
-                        if map_ds is None:
-                            map_ds      = tmp_map_ds
-                        else:
-                            map_attrs = map_ds['spot_density'].attrs
-                            map_ds += tmp_map_ds
-                            map_ds['spot_density'].attrs = map_attrs
-                        dss[prefix][group]  = map_ds
-                    else:
-                        if group not in dss[prefix]:
-                            dss[prefix][group]  = []
-                        dss[prefix][group].append(ds)
+                    if group not in dss[prefix]:
+                        dss[prefix][group]  = []
+                    dss[prefix][group].append(ds)
 
             mbz2.remove()
 
         # Process source counts - know what percentage of spots came from what sources.
-        self.sza        = Sza(dss['map'],self.sTime,self.eTime)
         self.src_cnts   = SrcCounts(dss['time_series'])
 
         # Concatenate Time Series Data
         xlim    = (0, (self.eTime-self.sTime).total_seconds()/3600.)
         print(' Concatenating data...')
-        prefix  = 'time_series'
-        xdct    = dss[prefix]
-        for group,ds_list in xdct.items():
-            ds          = xr.concat(ds_list,group)
-            for data_var in ds.data_vars:
-                print(prefix,group,data_var)
-                attrs   = ds[data_var].attrs
-                attrs.update({'xlim':str(xlim)})
-                ds[data_var].attrs = attrs
-            dss[prefix][group]  = ds
+        for prefix in prefixes:
+            xdct    = dss[prefix]
+            for group,ds_list in xdct.items():
+                ds          = xr.concat(ds_list,group)
+                for data_var in ds.data_vars:
+                    print(prefix,group,data_var)
+                    attrs   = ds[data_var].attrs
+                    attrs.update({'xlim':str(xlim)})
+                    ds[data_var].attrs = attrs
+                dss[prefix][group]  = ds
 
         self.datasets   = dss
 
@@ -442,20 +441,49 @@ class ncLoader(object):
         if label is not None:
             ax.set_xlabel(label)
 
-    def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',
-            plot_sza=True,subdir=None,geospace_env=None,plot_region=None,
+    def plot(self,baseout_dir='output',fname_suffix=None,xlim=None,ylim=None,xunits='datetime',title=None,
+            plot_sza=True,subdir=None,geospace_env=None,plot_region=None,no_percentages=False,
             plot_kpsymh=True,plot_goes=True,plot_f107=False,axvlines=None,axvlines_kw={},axvspans=None,time_format={},
             xkeys=None,log_z=None,**kwargs):
+
         if self.datasets is None:
             return
 
         if geospace_env is None:
             geospace_env    = GeospaceEnv()
 
+
         self.time_format    = time_format
-        xlim_in = xlim
         if axvlines_kw is None:
             axvlines_kw = {}
+
+        # Determine xlims ######################
+        xlim_in = xlim
+        xlims   = defaultdict(dict)
+        for group,ds in self.datasets['time_series'].items():
+            for data_var in ds.data_vars:
+                xlims[group][data_var] = \
+                    ast.literal_eval(ds[data_var].attrs.get('xlim',xlim_in))
+
+        # Concatenate Maps Across Time #########  
+        maps = defaultdict(dict)
+        szas = defaultdict(dict)
+        for group,ds in self.datasets['time_series'].items():
+            if xkeys is not None:
+                if group not in xkeys: continue
+            for data_var in ds.data_vars:
+                map_da  = self.datasets['map'][group]['spot_density']
+                xlim = xlims[group][data_var]
+                if xlim is not None:
+                    tf              = np.logical_and(map_da[group] >= xlim[0], map_da[group] < xlim[1])
+                    attrs           = map_da.attrs
+                    map_da          = map_da.loc[{group: map_da[group][tf]}].copy()
+                    map_da.attrs    = attrs
+                map_da  = map_da.sum(group,keep_attrs=True)
+                maps[group][data_var] = map_da
+
+        if plot_sza:
+            sza = Sza(maps,self.sTime,self.eTime)
 
         fpaths = [] # Keep track of paths of all plotted figures.
         for group,ds in self.datasets['time_series'].items():
@@ -464,7 +492,7 @@ class ncLoader(object):
             if xkeys is not None:
                 if group not in xkeys: continue
 
-            map_da  = self.datasets['map'][group]['spot_density']
+            map_da  = maps[group][data_var]
 
             outdir  = os.path.join(baseout_dir,group)
             if subdir is not None:
@@ -478,9 +506,7 @@ class ncLoader(object):
                 if ylim is None:
                     ylim = ast.literal_eval(data_da.attrs.get('ylim','None'))
 
-                xlim    = xlim_in
-                if xlim is None:
-                    xlim = ast.literal_eval(data_da.attrs.get('xlim','None'))
+                xlim = xlims[group][data_var]
 
                 if xunits == 'datetime':
                     hrs         = np.array(data_da.coords[group])
@@ -528,6 +554,7 @@ class ncLoader(object):
 #                col_1_span  = 65
 
                 axs_to_adjust   = []
+                axs_stackplot   = []
 
                 pinx = -1
                 if plot_kpsymh:
@@ -548,6 +575,7 @@ class ncLoader(object):
                         self._format_timeticklabels(ax)
                         ax.set_xlabel('')
                     axs_to_adjust   += omni_axs
+                    axs_stackplot   += omni_axs
 
                 ######################################## 
                 if plot_goes:
@@ -561,6 +589,7 @@ class ncLoader(object):
                     ax.tick_params(**tick_params)
                     plot_letter(pinx,ax)
                     axs_to_adjust.append(ax)
+                    axs_stackplot.append(ax)
                     self._format_timeticklabels(ax)
                     ax.set_xlabel('')
 
@@ -575,6 +604,7 @@ class ncLoader(object):
                     ax.tick_params(**tick_params)
                     plot_letter(pinx,ax)
                     axs_to_adjust.append(ax)
+                    axs_stackplot.append(ax)
                     self._format_timeticklabels(ax)
                     ax.set_xlabel('')
                 
@@ -604,8 +634,8 @@ class ncLoader(object):
                             ha='center',transform=ax.transAxes,fontdict=fdict)
 
                     if plot_sza:
-                        sza_lat = self.sza.sza[group]['lat'] 
-                        sza_lon = self.sza.sza[group]['lon'] 
+                        sza_lat = sza.sza[group]['lat'] 
+                        sza_lon = sza.sza[group]['lon'] 
                         ax.scatter([sza_lon],[sza_lat],marker='*',s=600,color='yellow',
                                         edgecolors='black',zorder=500,lw=3)
 
@@ -641,7 +671,7 @@ class ncLoader(object):
 #                    result      = data.plot.pcolormesh(x=data_da.attrs['xkey'],y=data_da.attrs['ykey'],ax=ax,robust=robust,cbar_kwargs=cbar_kwargs)
 
                     if plot_sza:
-                        self.sza.plot(group,ax)
+                        sza.plot(group,ax)
 
                     xlbl    = ax.get_xlabel()
                     if xlbl == 'ut_hrs':
@@ -673,6 +703,7 @@ class ncLoader(object):
                     self._format_timeticklabels(ax)
                     if inx != len(freqs)-1:
                         ax.set_xlabel('')
+                    axs_stackplot.append(ax)
 
                     hist_ax = ax
 
@@ -689,18 +720,21 @@ class ncLoader(object):
                     l('{!s}-\n{!s}'.format(date_str_0,date_str_1))
 
                 l('Ham Radio Networks')
-                l('N Spots = {!s}'.format(map_sum))
-                lines   += self.src_cnts.get_text(group,data_var)
+                l('N Spots = {:d}'.format(int(map_sum)))
+                if no_percentages:
+                    lines   += self.src_cnts.get_text_sources_only(group,data_var)
+                else:
+                    lines   += self.src_cnts.get_text(group,data_var)
                 txt     = '\n'.join(lines)
 
-                if not plot_kpsymh and not plot_goes:
+                if not plot_kpsymh and not plot_goes and not plot_f107:
                     xpos        = 0.025
                     ypos        = 1.005
                     fdict       = {'size':38,'weight':'bold'}
                     va          = 'bottom'
                 else:
                     xpos        = 0.025
-                    ypos        = 0.995
+                    ypos        = 1.005
                     fdict       = {'size':38,'weight':'bold'}
                     va          = 'top'
 
@@ -711,11 +745,25 @@ class ncLoader(object):
                 for ax_0 in axs_to_adjust:
                     gl.adjust_axes(ax_0,hist_ax)
 
+
+                if title is not None:
+                    xpos        = 0.500
+                    ypos        = 1.005
+                    fdict       = {'size':48,'weight':'bold'}
+                    va          = 'bottom'
+                    ha          = 'center'
+
+                    fig.text(xpos,ypos,title,fontdict=fdict,va=va,ha=ha)
+
                 sTime_str   = self.sTime.strftime('%Y%m%d.%H%MUT')
                 eTime_str   = self.eTime.strftime('%Y%m%d.%H%MUT')
                 date_str    = '-'.join([sTime_str,eTime_str])
 
-                fname   = '.'.join([date_str,self.basename,group,data_var,'png']).replace('.bz2','')
+                if fname_suffix is None:
+                    fname   = '.'.join([date_str,self.basename,group,data_var,'png']).replace('.bz2','')
+                else:
+                    fname   = '.'.join([date_str,self.basename,group,data_var,fname_suffix,'png']).replace('.bz2','')
+
                 fpath   = os.path.join(outdir,fname)
                 fig.savefig(fpath,bbox_inches='tight')
                 print('--> {!s}'.format(fpath))
