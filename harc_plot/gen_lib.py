@@ -482,9 +482,29 @@ def hdf5_dask_loader(file_path, chunk_size = 10000):
                             "rxlon": "rx_long", 
                             "txlat": "tx_lat", 
                             "txlon": "tx_long",
+                            "tfreq": "freq",
                             })
+    df['freq'] = df['freq']/1000
+    df['band'] = df['freq'].apply(get_band)
     
     return df
+
+def get_band(frequency):
+    
+    if 137 <= frequency < 2000:          # 160 meters band (0.137 - 2 MHz)
+        return 160  # 160 meters band
+    elif 2000 <= frequency < 4000:       # 80 meters band (2 - 4 MHz)
+        return 80  # 80 meters band
+    elif 4000 <= frequency < 7000:       # 40 meters band (4 - 7 MHz)
+        return 40  # 40 meters band
+    elif 7000 <= frequency < 14000:      # 20 meters band (7 - 14 MHz)
+        return 20  # 20 meters band
+    elif 14000 <= frequency < 21000:     # 15 meters band (14 - 21 MHz)
+        return 15  # 15 meters band
+    elif 21000 <= frequency < 30000:     # 10 meters band (21 - 30 MHz)
+        return 10  # 10 meters band
+    else:
+        return 0  # Out of range, but will not stop the script
 
 def load_spots_csv(date_str,data_sources=[1,2],loc_sources=None,
         rgc_lim=None,filter_region=None,filter_region_kind='mids'):
@@ -558,10 +578,6 @@ def load_spots_csv(date_str,data_sources=[1,2],loc_sources=None,
 
     df["ut_hrs"]    = df['occurred'].map(lambda x: x.hour + x.minute/60. + x.second/3600.)
     df['slt_mid']   = (df['ut_hrs'] + df['md_long']/15.) % 24.
-
-    print(df.iloc[:5, :5])
-    print(df.iloc[:5, 5:12])
-    print(df.iloc[:5, 12:18])
 
     return df
 

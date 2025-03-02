@@ -2,7 +2,10 @@
 __pycache__/
 *.pyc
 *.swp
+*.ipynb
 
+**/.ipynb_checkpoints/
+.ipynb_checkpoints/
 data/
 output/galleries/
 scripts/*/output/

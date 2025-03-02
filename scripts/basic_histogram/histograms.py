@@ -52,16 +52,16 @@ harc_plot.calculate_histograms.main(rd)
 
 # Visualization ################################################################
 ### Visualize Observations
-#rd = {}
-#rd['srcs']                  = os.path.join(data_dir,'*.data.nc.bz2')
-#rd['baseout_dir']           = plot_dir
-#rd['sTime']                 = sTime
-#rd['eTime']                 = eTime
-#rd['plot_region']           = region
-#rd['geospace_env']          = geo_env
-#rd['band_keys']             = [28, 21, 14, 7, 3, 1]
-#harc_plot.visualize_histograms.main(rd)
-#harc_plot.visualize_histograms.plot_dailies(rd)
+rd = {}
+rd['srcs']                  = os.path.join(data_dir,'*.data.nc.bz2')
+rd['baseout_dir']           = plot_dir
+rd['sTime']                 = sTime
+rd['eTime']                 = eTime
+rd['plot_region']           = region
+rd['geospace_env']          = geo_env
+rd['band_keys']             = [28, 21, 14, 7, 3, 1]
+harc_plot.visualize_histograms.main(rd)
+harc_plot.visualize_histograms.plot_dailies(rd)
 
 #### Visualize Baselines
 #rd['srcs']                  = os.path.join(data_dir,'*.baseline_compare.nc.bz2')
