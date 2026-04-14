@@ -11,7 +11,8 @@ import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 
-import dask.dataframe as dd
+import tables
+import warnings
 
 import pickle
 import bz2
@@ -454,57 +455,141 @@ def regional_filter(region, df, kind='mids'):
     lon_lim = rgnd['lon_lim']
 
     if kind == 'mids':
-        df = df[(df['md_lat'] >= lat_lim[0]) & (df['md_lat'] < lat_lim[1])]
-        df = df[(df.md_long >= lon_lim[0]) & (df.md_long < lon_lim[1])]
-
+        tf = ((df['md_lat']  >= lat_lim[0]) & (df['md_lat']  < lat_lim[1]) &
+              (df['md_long'] >= lon_lim[0]) & (df['md_long'] < lon_lim[1]))
     elif kind == 'endpoints':
-        df_rx = df[(df.rx_lat >= lat_lim[0]) & (df.rx_lat < lat_lim[1]) & 
-                   (df.rx_long >= lon_lim[0]) & (df.rx_long < lon_lim[1])]
-
-        df_tx = df[(df.tx_lat >= lat_lim[0]) & (df.tx_lat < lat_lim[1]) & 
-                   (df.tx_long >= lon_lim[0]) & (df.tx_long < lon_lim[1])]
-
-        df = pd.concat([df_rx, df_tx], ignore_index=True)  # Merge both filters
-
-    return df
-
-
-def hdf5_dask_loader(file_path, chunk_size = 10000):
-    
-    df = dd.read_hdf(file_path, key='Data/Table Layout', chunksize=chunk_size)  # Adjust chunksize as needed
-    df = df.compute()
-    
-    df['occurred'] = pd.to_datetime(df['year'] + '-' + df['month'] + '-' + df['day'] + ' ' + df['hour'] + ':' + df['min'] + ':' + df['sec'])
-    df.drop(['year', 'month', 'day', 'hour', 'min', 'sec'], axis=1, inplace=True)
-    df["source"] = 1
-    df = df.rename(columns={"pthlen": "dist_Km", 
-                            "rxlat": "rx_lat", 
-                            "rxlon": "rx_long", 
-                            "txlat": "tx_lat", 
-                            "txlon": "tx_long",
-                            "tfreq": "freq",
-                            })
-    df['freq'] = df['freq']/1000
-    df['band'] = df['freq'].apply(get_band)
-    
-    return df
-
-def get_band(frequency):
-    
-    if 137 <= frequency < 2000:          # 160 meters band (0.137 - 2 MHz)
-        return 160  # 160 meters band
-    elif 2000 <= frequency < 4000:       # 80 meters band (2 - 4 MHz)
-        return 80  # 80 meters band
-    elif 4000 <= frequency < 7000:       # 40 meters band (4 - 7 MHz)
-        return 40  # 40 meters band
-    elif 7000 <= frequency < 14000:      # 20 meters band (7 - 14 MHz)
-        return 20  # 20 meters band
-    elif 14000 <= frequency < 21000:     # 15 meters band (14 - 21 MHz)
-        return 15  # 15 meters band
-    elif 21000 <= frequency < 30000:     # 10 meters band (21 - 30 MHz)
-        return 10  # 10 meters band
+        tf_rx = ((df['rx_lat']  >= lat_lim[0]) & (df['rx_lat']  < lat_lim[1]) &
+                 (df['rx_long'] >= lon_lim[0]) & (df['rx_long'] < lon_lim[1]))
+        tf_tx = ((df['tx_lat']  >= lat_lim[0]) & (df['tx_lat']  < lat_lim[1]) &
+                 (df['tx_long'] >= lon_lim[0]) & (df['tx_long'] < lon_lim[1]))
+        tf = tf_rx | tf_tx
     else:
-        return 0  # Out of range, but will not stop the script
+        raise ValueError(f"regional_filter kind must be 'mids' or 'endpoints', got {kind!r}")
+
+    return df[tf].copy()
+
+
+# Madrigal ssrc 3-letter code -> harc_plot integer source code (keep in sync with `sources` dict above).
+_MADRIGAL_SSRC_MAP = {'WSP': 1, 'RBN': 2, 'PSK': 3}
+
+# Band plan: (low_MHz, high_MHz, band_key). band_key is int(center_MHz) to match
+# BandData.band_dict convention, except for sub-MHz bands which use a compact unique int.
+# Widened to include non-ham / experimental frequencies observed in Madrigal data so
+# nothing is silently dropped; BandData decides what actually gets plotted. Out-of-band
+# spots are flagged with -1.
+_BAND_EDGES_MHZ = [
+    ( 0.135,   0.138,     137),  # 2200 m (LF experimental, ~137 kHz)
+    ( 1.8,     2.0,         1),  #  160 m
+    ( 3.5,     4.0,         3),  #   80 m
+    ( 5.25,    5.50,        5),  #   60 m (widened to catch 5.288 MHz spots)
+    ( 7.0,     7.3,         7),  #   40 m
+    (10.1,    10.15,       10),  #   30 m
+    (14.0,    14.35,       14),  #   20 m
+    (18.068,  18.168,      18),  #   17 m
+    (21.0,    21.45,       21),  #   15 m
+    (24.89,   24.99,       24),  #   12 m
+    (28.0,    29.7,        28),  #   10 m
+    (50.0,    54.0,        50),  #    6 m
+    (144.0,  148.0,       144),  #    2 m
+]
+
+def _freq_MHz_to_band(freq_MHz):
+    """Vectorized: MHz -> band_key int (-1 = out-of-band)."""
+    out = np.full(len(freq_MHz), -1, dtype=np.int16)
+    for lo, hi, key in _BAND_EDGES_MHZ:
+        out[(freq_MHz >= lo) & (freq_MHz < hi)] = key
+    return out
+
+def _detect_ut1_offset(r, probe=1000):
+    """
+    Detect per-file offset (seconds) between ut1_unix and the y/m/d/h/m/s columns.
+    Returns (offset_sec, uniform) where offset_sec is the median and uniform is True
+    iff every probed row has the same offset. Older Madrigal ham files carry a
+    local-timezone offset in ut1_unix/ut2_unix; the y/m/d/h/m/s columns are
+    authoritative UTC.
+    """
+    n = min(probe, len(r))
+    ymd = pd.DataFrame({
+        'year':   np.char.decode(r['year'][:n]).astype(int),
+        'month':  np.char.decode(r['month'][:n]).astype(int),
+        'day':    np.char.decode(r['day'][:n]).astype(int),
+        'hour':   np.char.decode(r['hour'][:n]).astype(int),
+        'minute': np.char.decode(r['min'][:n]).astype(int),
+        'second': np.char.decode(r['sec'][:n]).astype(int),
+    })
+    ymd_sec = pd.to_datetime(ymd).values.astype('datetime64[s]').astype(np.int64)
+    diffs   = r['ut1_unix'][:n].astype(np.int64) - ymd_sec
+    uniq    = np.unique(diffs)
+    return int(uniq[0]) if len(uniq) == 1 else int(np.median(diffs)), len(uniq) == 1
+
+def load_madrigal_hdf5(file_path):
+    """
+    Load a Madrigal ham-radio HDF5 file (rsdYYYY-MM-DD.01.hdf5) into a pandas DataFrame
+    with columns compatible with the rest of harc_plot's pipeline:
+
+        occurred, freq (MHz), band, dist_Km, source,
+        tx_lat, tx_long, rx_lat, rx_long, md_lat, md_long,
+        call_tx, call_rx, snr_dB, mode
+
+    Timestamps: prefers the fast ut1_unix column, but detects the known
+    ut1_unix local-timezone offset per-file and corrects or falls back as needed.
+    """
+    with tables.open_file(file_path, 'r') as h:
+        r = h.get_node('/Data/Table Layout').read()
+
+    offset_sec, uniform = _detect_ut1_offset(r)
+
+    if offset_sec == 0 and uniform:
+        occurred = pd.to_datetime(r['ut1_unix'], unit='s', utc=True)
+    elif uniform:
+        warnings.warn(
+            f"{os.path.basename(file_path)}: ut1_unix offset = {offset_sec:+d}s "
+            "(local-timezone offset). Correcting from ut1_unix.",
+            RuntimeWarning, stacklevel=2)
+        occurred = pd.to_datetime(r['ut1_unix'] - offset_sec, unit='s', utc=True)
+    else:
+        warnings.warn(
+            f"{os.path.basename(file_path)}: non-uniform ut1_unix offset; "
+            "falling back to y/m/d/h/m/s parse (slow).",
+            RuntimeWarning, stacklevel=2)
+        occurred = pd.to_datetime(pd.DataFrame({
+            'year':   np.char.decode(r['year']).astype(int),
+            'month':  np.char.decode(r['month']).astype(int),
+            'day':    np.char.decode(r['day']).astype(int),
+            'hour':   np.char.decode(r['hour']).astype(int),
+            'minute': np.char.decode(r['min']).astype(int),
+            'second': np.char.decode(r['sec']).astype(int),
+        }), utc=True)
+
+    freq_MHz = r['tfreq'] / 1.0e6
+    ssrc_str = np.char.decode(r['ssrc'])
+    source_mapped = pd.Series(ssrc_str).map(_MADRIGAL_SSRC_MAP)
+    n_unknown = source_mapped.isna().sum()
+    if n_unknown:
+        unknown_vals = sorted(set(ssrc_str) - set(_MADRIGAL_SSRC_MAP))
+        warnings.warn(
+            f"{os.path.basename(file_path)}: {n_unknown} rows have unknown ssrc "
+            f"values {unknown_vals}; tagging source=0.", RuntimeWarning, stacklevel=2)
+    source = source_mapped.fillna(0).astype(np.int16).values
+
+    df = pd.DataFrame({
+        'occurred': occurred,
+        'freq':     freq_MHz,
+        'band':     _freq_MHz_to_band(freq_MHz),
+        'dist_Km':  r['pthlen'],
+        'source':   source,
+        'tx_lat':   r['txlat'],
+        'tx_long':  r['txlon'],
+        'rx_lat':   r['rxlat'],
+        'rx_long':  r['rxlon'],
+        'md_lat':   r['latcen'],   # Madrigal-precomputed great-circle midpoint
+        'md_long':  r['loncen'],
+        'call_tx':  np.char.decode(r['call_sign_tx']),
+        'call_rx':  np.char.decode(r['call_sign_rx']),
+        'snr_dB':   r['sn'],
+        'mode':     np.char.decode(r['smode']),
+    })
+    return df
 
 def load_spots_csv(date_str,data_sources=[1,2],loc_sources=None,
         rgc_lim=None,filter_region=None,filter_region_kind='mids'):
@@ -527,7 +612,7 @@ def load_spots_csv(date_str,data_sources=[1,2],loc_sources=None,
     hdf_path = "data/madrigal/rsd{}.01.hdf5".format(date_str)
     csv_path = "data/spot_csvs/{}.csv.bz2".format(date_str)
     if os.path.exists(hdf_path):
-        df = hdf5_dask_loader(hdf_path)
+        df = load_madrigal_hdf5(hdf_path)
     elif os.path.exists(csv_path):
         df  = pd.read_csv(csv_path,parse_dates=['occurred'])
     else:
@@ -545,13 +630,19 @@ def load_spots_csv(date_str,data_sources=[1,2],loc_sources=None,
     if len(df) == 0:
         return
 
-    # Filter location source
+    # Filter location source (CSV path only; Madrigal HDF5 does not carry loc_source fields)
     if loc_sources is not None:
-        tf  = df.tx_loc_source.map(lambda x: x in loc_sources)
-        df  = df[tf].copy()
+        if 'tx_loc_source' not in df.columns:
+            warnings.warn(
+                "loc_sources filter requested but tx_loc_source/rx_loc_source "
+                "columns absent (Madrigal HDF5 path). Skipping.",
+                RuntimeWarning, stacklevel=2)
+        else:
+            tf  = df.tx_loc_source.map(lambda x: x in loc_sources)
+            df  = df[tf].copy()
 
-        tf  = df.rx_loc_source.map(lambda x: x in loc_sources)
-        df  = df[tf].copy()
+            tf  = df.rx_loc_source.map(lambda x: x in loc_sources)
+            df  = df[tf].copy()
 
     if len(df) == 0:
         return
@@ -565,14 +656,17 @@ def load_spots_csv(date_str,data_sources=[1,2],loc_sources=None,
     if len(df) == 0:
         return
 
-    midpoints       = geopack.midpoint(df["tx_lat"], df["tx_long"], df["rx_lat"], df["rx_long"])
-    df['md_lat']    = midpoints[0]
-    df['md_long']   = midpoints[1]
-    
+    # Madrigal HDF5 already carries great-circle midpoints (latcen/loncen); only compute
+    # for the CSV path.
+    if 'md_lat' not in df.columns or 'md_long' not in df.columns:
+        midpoints     = geopack.midpoint(df["tx_lat"], df["tx_long"], df["rx_lat"], df["rx_long"])
+        df['md_lat']  = midpoints[0]
+        df['md_long'] = midpoints[1]
+
     # Regional Filtering
-#    if filter_region is not None:
-#        df_raw  = df.copy()
-#        df      = regional_filter(filter_region,df,kind=filter_region_kind)
+    if filter_region is not None:
+        df = regional_filter(filter_region, df, kind=filter_region_kind)
+
     if len(df) == 0:
         return
 
