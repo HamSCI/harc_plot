@@ -472,32 +472,32 @@ def regional_filter(region, df, kind='mids'):
 # Madrigal ssrc 3-letter code -> harc_plot integer source code (keep in sync with `sources` dict above).
 _MADRIGAL_SSRC_MAP = {'WSP': 1, 'RBN': 2, 'PSK': 3}
 
-# Band plan: (low_MHz, high_MHz, band_key). band_key is int(center_MHz) to match
-# BandData.band_dict convention, except for sub-MHz bands which use a compact unique int.
-# Widened to include non-ham / experimental frequencies observed in Madrigal data so
-# nothing is silently dropped; BandData decides what actually gets plotted. Out-of-band
-# spots are flagged with -1.
+# Band plan: (low_MHz, high_MHz, band_meters). The 'band' column stores wavelength
+# in meters to match the existing harc_plot convention (BandData's 'meters' field and
+# calculate_histograms' `df["band"] == band["meters"]` filter). Includes non-ham /
+# experimental frequencies observed in Madrigal data so nothing is silently dropped;
+# BandData decides what actually gets plotted. Out-of-band spots are flagged with -1.
 _BAND_EDGES_MHZ = [
-    ( 0.135,   0.138,     137),  # 2200 m (LF experimental, ~137 kHz)
-    ( 1.8,     2.0,         1),  #  160 m
-    ( 3.5,     4.0,         3),  #   80 m
-    ( 5.25,    5.50,        5),  #   60 m (widened to catch 5.288 MHz spots)
-    ( 7.0,     7.3,         7),  #   40 m
-    (10.1,    10.15,       10),  #   30 m
-    (14.0,    14.35,       14),  #   20 m
-    (18.068,  18.168,      18),  #   17 m
-    (21.0,    21.45,       21),  #   15 m
-    (24.89,   24.99,       24),  #   12 m
-    (28.0,    29.7,        28),  #   10 m
-    (50.0,    54.0,        50),  #    6 m
-    (144.0,  148.0,       144),  #    2 m
+    ( 0.135,   0.138,    2200),  # 2200 m (LF experimental, ~137 kHz)
+    ( 1.8,     2.0,       160),  #  160 m
+    ( 3.5,     4.0,        80),  #   80 m
+    ( 5.25,    5.50,       60),  #   60 m (widened to catch 5.288 MHz spots)
+    ( 7.0,     7.3,        40),  #   40 m
+    (10.1,    10.15,       30),  #   30 m
+    (14.0,    14.35,       20),  #   20 m
+    (18.068,  18.168,      17),  #   17 m
+    (21.0,    21.45,       15),  #   15 m
+    (24.89,   24.99,       12),  #   12 m
+    (28.0,    29.7,        10),  #   10 m
+    (50.0,    54.0,         6),  #    6 m
+    (144.0,  148.0,         2),  #    2 m
 ]
 
 def _freq_MHz_to_band(freq_MHz):
-    """Vectorized: MHz -> band_key int (-1 = out-of-band)."""
+    """Vectorized: MHz -> band wavelength in meters (-1 = out-of-band)."""
     out = np.full(len(freq_MHz), -1, dtype=np.int16)
-    for lo, hi, key in _BAND_EDGES_MHZ:
-        out[(freq_MHz >= lo) & (freq_MHz < hi)] = key
+    for lo, hi, meters in _BAND_EDGES_MHZ:
+        out[(freq_MHz >= lo) & (freq_MHz < hi)] = meters
     return out
 
 def _detect_ut1_offset(r, probe=1000):
