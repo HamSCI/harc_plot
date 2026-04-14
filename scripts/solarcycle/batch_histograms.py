@@ -43,7 +43,12 @@ NETWORK_TO_SOURCES = {
 def _process_day(date, *, data_sources, region, rgc_lim, xkeys, params,
                  xb_size_min, yb_size_km, data_dir):
     """Worker: process a single UTC day. Always reprocess=False here; the driver
-    handles clearing the output dir once up front so workers do not race on it."""
+    handles clearing the output dir once up front so workers do not race on it.
+
+    Exceptions are caught and returned as (date, error_message) so one bad Madrigal
+    file does not tear down the whole pool. Observed failure modes include truncated
+    HDF5 files (HDF5ExtError) and files missing /Data/Table Layout (NoSuchNodeError)
+    — all upstream ingestion issues at MIT Haystack, not bugs in the pipeline."""
     rd = {
         'sDate':              date,
         'eDate':              date + datetime.timedelta(days=1),
@@ -60,8 +65,11 @@ def _process_day(date, *, data_sources, region, rgc_lim, xkeys, params,
         'output_dir':         data_dir,
         'band_obj':           harc_plot.gl.BandData(),
     }
-    harc_plot.calculate_histograms.main(rd)
-    return date
+    try:
+        harc_plot.calculate_histograms.main(rd)
+        return (date, None)
+    except Exception as e:
+        return (date, f'{type(e).__name__}: {e}')
 
 
 def _daterange(start, stop):
@@ -131,14 +139,26 @@ def main(argv=None):
     print(f'  reprocess:  {args.reprocess}', file=sys.stderr)
 
     t0 = time.time()
+    failed = []  # list of (date, error_message)
     # spawn context avoids fork-safety issues with pytables / HDF5 file handles.
     ctx = mp.get_context('spawn')
     with ctx.Pool(args.workers) as pool:
         it = pool.imap_unordered(worker, dates, chunksize=1)
-        for _ in tqdm.tqdm(it, total=len(dates), desc='days', unit='day'):
-            pass
+        for result_date, err in tqdm.tqdm(it, total=len(dates), desc='days', unit='day'):
+            if err is not None:
+                failed.append((result_date, err))
     dt = time.time() - t0
     print(f'Done in {dt:.1f}s ({dt/max(len(dates),1):.1f}s/day avg).', file=sys.stderr)
+    if failed:
+        print(f'{len(failed)} days failed:', file=sys.stderr)
+        for d, err in sorted(failed):
+            print(f'  {d.strftime("%Y-%m-%d")}  {err}', file=sys.stderr)
+        # Also write a machine-readable list next to the output dir for later triage.
+        fail_path = os.path.join(data_dir, '_failed_dates.txt')
+        with open(fail_path, 'w') as fh:
+            for d, err in sorted(failed):
+                fh.write(f'{d.strftime("%Y-%m-%d")}\t{err}\n')
+        print(f'Wrote failure list to {fail_path}', file=sys.stderr)
 
 
 if __name__ == '__main__':
