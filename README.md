@@ -74,3 +74,22 @@ output/galleries/histograms/World/slt_mid/dailies/20150610.0000UT-20150611.0000U
 ```
 
 ![Example Plot](example_plots/20150610.0000UT-20150611.0000UT.data.nc.ut_hrs.spot_density.png)
+
+## Data sources and acknowledgements
+
+### Solar F10.7 cm radio flux
+
+Solar F10.7 cm radio flux values bundled in `data/omni/` (and re-downloaded by
+`data/omni/update_omni_data.py`) are obtained from the NASA OMNIWeb service
+(<https://omniweb.gsfc.nasa.gov>) as part of the OMNI2 hourly compiled dataset,
+which ingests F10.7 observations made at the Dominion Radio Astrophysical
+Observatory (DRAO), Penticton, British Columbia, Canada, by Natural Resources
+Canada.
+
+**Suggested acknowledgement for publications using this toolkit's F10.7 data:**
+
+> Solar F10.7 cm radio flux data were obtained from the NASA OMNIWeb service
+> (https://omniweb.gsfc.nasa.gov) as part of the OMNI2 hourly compiled dataset
+> (Papitashvili & King, 2020), which ingests F10.7 observations made at the
+> Dominion Radio Astrophysical Observatory, Penticton, British Columbia,
+> Canada, by Natural Resources Canada.

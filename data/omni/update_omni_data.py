@@ -1,4 +1,25 @@
 #!/usr/bin/env python3
+"""
+Download solar / geomagnetic indices from NASA OMNIWeb.
+
+The bundled `omni_data_reduced.txt.bz2` in this directory contains hourly
+values of Kp, R (sunspot number), Dst, ap, **F10.7**, AE, AL, and AU from
+2000-01-01 onward, used throughout `harc_plot` for solar-cycle overlays and
+SW-activity filtering.
+
+Data source and suggested acknowledgement:
+
+    Solar F10.7 cm radio flux data were obtained from the NASA OMNIWeb
+    service (https://omniweb.gsfc.nasa.gov) as part of the OMNI2 hourly
+    compiled dataset (Papitashvili & King, 2020), which ingests F10.7
+    observations made at the Dominion Radio Astrophysical Observatory,
+    Penticton, British Columbia, Canada, by Natural Resources Canada.
+
+The Kp, Dst, ap, AE/AL/AU indices in the same file originate with the
+International Service of Geomagnetic Indices (ISGI) / GFZ Potsdam / Kyoto
+WDC; consult the OMNI2 documentation for attribution details before using
+them.
+"""
 import os
 import datetime
 from collections import OrderedDict
