@@ -93,3 +93,33 @@ Canada.
 > (Papitashvili & King, 2020), which ingests F10.7 observations made at the
 > Dominion Radio Astrophysical Observatory, Penticton, British Columbia,
 > Canada, by Natural Resources Canada.
+
+Note that F10.7 is determined **once per day**, so it cannot resolve solar
+flares. Use GOES X-ray irradiance for flare timing (see below).
+
+### GOES X-ray irradiance
+
+`harc_plot.goes.read_goes_ncei()` retrieves 1-minute GOES XRS data from the NOAA
+National Centers for Environmental Information (NCEI) over HTTPS, caching files in
+`data/goes/`. Two archives are used and normalized to a common set of column names
+(`A_AVG` for 0.05–0.4 nm, `B_AVG` for 0.1–0.8 nm):
+
+* GOES 8–15 — GOES Space Environment Monitor archive, one netCDF per month
+* GOES 16–19 — GOES-R series L2 `xrsf-l2-avg1m` product, one netCDF per day
+
+The older `read_goes()` targets `ftp://satdat.ngdc.noaa.gov`, which NOAA retired
+along with anonymous FTP; it now always fails and returns `None`. Prefer
+`read_goes_ncei()`.
+
+**Flare magnitudes are not comparable across satellite generations.** The pre-R
+and GOES-R XRS instruments report on different flux scales — for the 2017-09-06
+flare, GOES-15 gives X9.3 (the accepted classification), GOES-13 X10.4, and
+GOES-16 X5.2. `goes_xrs_candidates()` therefore prefers the *primary operational*
+satellite for each epoch, which reproduces the standard classifications.
+
+**Suggested acknowledgement for publications using this toolkit's GOES data:**
+
+> GOES X-ray irradiance data were obtained from the NOAA National Centers for
+> Environmental Information (https://www.ncei.noaa.gov), from the GOES Space
+> Environment Monitor archive (GOES 8–15) and the GOES-R series Level 2 X-Ray
+> Sensor 1-minute average product (GOES 16–19).

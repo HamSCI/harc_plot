@@ -4,6 +4,7 @@ import datetime
 from collections import OrderedDict
 import string
 import ast
+import warnings
 
 import matplotlib as mpl
 mpl.use('Agg')
@@ -214,10 +215,18 @@ class Sza(object):
         sza_ax.set_ylim(110,0)
 
 class Goeser(object):
-    def __init__(self,sTime,eTime,sats=[13,15]):
+    # 1-minute X-ray flux is meaningless on a multi-year axis, and fetching it for one
+    # would pull thousands of daily files. Above this span the panel is skipped.
+    MAX_SPAN_DAYS = 120
+
+    def __init__(self,sTime,eTime,sats=None,max_span_days=None):
+        """sats=None (default) auto-selects the primary operational satellite for the
+        epoch via goes.goes_xrs_candidates(). Pass an explicit list to override."""
         self.sTime  = sTime
         self.eTime  = eTime
         self.sats   = sats
+        self.max_span_days = (self.MAX_SPAN_DAYS if max_span_days is None
+                              else max_span_days)
 
         self.load_goes()
 
@@ -226,41 +235,66 @@ class Goeser(object):
         eTime   = self.eTime
         sats    = self.sats
 
-        goes_dcts       = OrderedDict()
-        for sat in sats:
-            goes_dcts[sat]  = {}
+        self.flares_combined    = pd.DataFrame()
+        self.goes_dcts          = OrderedDict()
 
-        flares_combined = pd.DataFrame()
-        for sat_nr,gd in goes_dcts.items():
-            gd['data']      = goes.read_goes(sTime,eTime,sat_nr=sat_nr)
+        span_days = (eTime - sTime).total_seconds() / 86400.
+        if span_days > self.max_span_days:
+            warnings.warn('GOES X-ray panel skipped: {0:.0f}-day span exceeds '
+                          '{1}-day limit.'.format(span_days,self.max_span_days),
+                          RuntimeWarning)
+            return
+
+        # sats=None lets read_goes_ncei pick per epoch; otherwise honor the request.
+        # Either way this is one entry, not a stack of satellites: mixing pre-R and
+        # GOES-R traces on one axis would overlay incompatible flux scales.
+        requests = [None] if sats is None else list(sats)
+
+        for sat_req in requests:
+            gd = {}
+            gd['data'] = goes.read_goes_ncei(sTime,eTime,sat_nr=sat_req)
 
             # Skip if no GOES data present
             if gd['data'] is None:
                 continue
 
+            sat_nr = gd['data'].get('sat_nrs',[sat_req])
+            sat_nr = sat_nr[0] if sat_nr else sat_req
+
             flares          = goes.find_flares(gd['data'],min_class='M1',window_minutes=60)
             flares['sat']   = sat_nr
             gd['flares']    = flares
-            flares_combined = pd.concat([flares_combined,flares]).sort_index()
+            self.flares_combined = pd.concat([self.flares_combined,flares]).sort_index()
             gd['var_tags']  = ['B_AVG']
             gd['labels']    = ['GOES {!s}'.format(sat_nr)]
+            self.goes_dcts[sat_nr] = gd
 
-        self.flares_combined = flares_combined[~flares_combined.index.duplicated()].sort_index()
-        self.goes_dcts  = goes_dcts
+        if len(self.flares_combined) > 0:
+            self.flares_combined = self.flares_combined[
+                    ~self.flares_combined.index.duplicated()].sort_index()
 
     def plot(self,ax,lw=2):
         sTime   = self.sTime
         eTime   = self.eTime
 
+        plotted = 0
         for sat_nr,gd in self.goes_dcts.items():
             if gd['data'] is None: continue
             goes.goes_plot(gd['data'],sTime,eTime,ax=ax,
                     var_tags=gd['var_tags'],labels=gd['labels'],
                     legendLoc='upper right',lw=lw)
+            plotted += 1
 
         title   = 'NOAA GOES X-Ray (0.1 - 0.8 nm) Irradiance'
         size    = 20
         ax.text(0.01,0.05,title,transform=ax.transAxes,ha='left',fontdict={'size':size,'weight':'bold'})
+
+        if plotted == 0:
+            # Say so explicitly. A blank log-scale panel otherwise reads as "no flares
+            # occurred" when it actually means no data was retrieved for this interval.
+            ax.text(0.5,0.5,'No GOES X-ray data available for this interval',
+                    transform=ax.transAxes,ha='center',va='center',
+                    fontdict={'size':size,'weight':'bold'},color='0.4')
 
 
 class ncLoader(object):
@@ -445,8 +479,23 @@ class ncLoader(object):
     def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',
             plot_sza=True,subdir=None,geospace_env=None,plot_region=None,
             plot_kpsymh=True,plot_goes=True,plot_f107=False,dst_param='SYM-H',
+            context_panels=('kpsymh','goes','f107'),
             axvlines=None,axvlines_kw={},axvspans=None,time_format={},
             xkeys=None,log_z=None,**kwargs):
+        # Validate before the no-data early return, so a mistyped key is caught on every
+        # call rather than only on the ones that happen to have data. A typo would
+        # otherwise silently drop a panel, and a duplicate would draw one twice into
+        # the same row.
+        _valid_panels = ('kpsymh','goes','f107')
+        context_panels = tuple(context_panels)
+        bad = [p for p in context_panels if p not in _valid_panels]
+        if bad:
+            raise ValueError('Unknown context_panels entry/entries {0}. '
+                             'Valid keys: {1}'.format(bad,list(_valid_panels)))
+        if len(set(context_panels)) != len(context_panels):
+            raise ValueError('context_panels contains duplicates: '
+                             '{0}'.format(list(context_panels)))
+
         if self.datasets is None:
             return
 
@@ -530,9 +579,11 @@ class ncLoader(object):
 
                 axs_to_adjust   = []
 
-                pinx = -1
-                if plot_kpsymh:
-                    pinx    += 1
+                ########################################
+                # Context panels, stacked above the per-band panels. Each renders into
+                # the row it is handed, so the caller controls the order via
+                # context_panels; the panel letters follow whatever order is given.
+                def _panel_kpsymh(pinx):
                     ax      = plt.subplot2grid((ny,nx),(pinx,col_1),colspan=col_1_span)
                     ax.set_xlim(xlim)
                     ax.set_ylim(ylim)
@@ -550,15 +601,15 @@ class ncLoader(object):
                     label_time  = axvlines_kw.get('label_time',True)
                     plot_axv(axvlines,omni_axs[0],color='k',label_time=label_time)
                     plot_axvspans(axvspans,omni_axs[0])
-                    for ax in omni_axs:
-                        self._format_timeticklabels(ax)
-                        ax.set_xlabel('')
-                    axs_to_adjust   += omni_axs
+                    for omni_ax in omni_axs:
+                        self._format_timeticklabels(omni_ax)
+                        omni_ax.set_xlabel('')
+                    # extend(), not +=: augmented assignment would rebind the closed-over
+                    # name as a local and raise UnboundLocalError.
+                    axs_to_adjust.extend(omni_axs)
 
-                ######################################## 
-                if plot_goes:
+                def _panel_goes(pinx):
                     goeser  = Goeser(self.sTime,self.eTime)
-                    pinx    +=1 
                     ax      = plt.subplot2grid((ny,nx),(pinx,col_1),colspan=col_1_span)
                     goeser.plot(ax)
                     ax.set_xlim(xlim)
@@ -570,9 +621,7 @@ class ncLoader(object):
                     self._format_timeticklabels(ax)
                     ax.set_xlabel('')
 
-                ######################################## 
-                if plot_f107:
-                    pinx    +=1 
+                def _panel_f107(pinx):
                     ax      = plt.subplot2grid((ny,nx),(pinx,col_1),colspan=col_1_span)
                     geospace_env.omni.plot_f107(self.sTime,self.eTime,ax,xlabels=True)
                     ax.set_xlim(xlim)
@@ -583,7 +632,21 @@ class ncLoader(object):
                     axs_to_adjust.append(ax)
                     self._format_timeticklabels(ax)
                     ax.set_xlabel('')
-                
+
+                panel_funcs = {'kpsymh':_panel_kpsymh,
+                               'goes':  _panel_goes,
+                               'f107':  _panel_f107}
+                panel_on    = {'kpsymh':plot_kpsymh,
+                               'goes':  plot_goes,
+                               'f107':  plot_f107}
+
+                pinx = -1
+                for panel_key in context_panels:
+                    if not panel_on.get(panel_key,False):
+                        continue
+                    pinx += 1
+                    panel_funcs[panel_key](pinx)
+
                 map_sum         = 0
                 for inx,freq in enumerate(freqs):
                     plt_row = inx+pinx+1
