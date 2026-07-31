@@ -444,7 +444,8 @@ class ncLoader(object):
 
     def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',
             plot_sza=True,subdir=None,geospace_env=None,plot_region=None,
-            plot_kpsymh=True,plot_goes=True,plot_f107=False,axvlines=None,axvlines_kw={},axvspans=None,time_format={},
+            plot_kpsymh=True,plot_goes=True,plot_f107=False,dst_param='SYM-H',
+            axvlines=None,axvlines_kw={},axvspans=None,time_format={},
             xkeys=None,log_z=None,**kwargs):
         if self.datasets is None:
             return
@@ -536,8 +537,13 @@ class ncLoader(object):
                     ax.set_xlim(xlim)
                     ax.set_ylim(ylim)
 
+                    # dst_param selects the ring-current index: 'SYM-H' is 1-min Kyoto
+                    # data but is only loaded for SymH(years=...) (2016-2017 by default,
+                    # and no Kyoto file exists past 2019); 'Dst_nT' is hourly OMNI and
+                    # spans the whole archive. Outside the SYM-H years the panel plots
+                    # empty, so callers working across arbitrary epochs want 'Dst_nT'.
                     omni_axs        = geospace_env.omni.plot_dst_kp(self.sTime,self.eTime,ax,xlabels=True,
-                                        kp_markersize=10,dst_lw=2,dst_param='SYM-H')
+                                        kp_markersize=10,dst_lw=2,dst_param=dst_param)
                     ax.tick_params(**tick_params)
                     plot_letter(pinx,ax)
 
