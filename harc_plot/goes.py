@@ -33,11 +33,16 @@ find_flares     find flares in a certain class
 
 import logging
 import os
+import re
+import shutil
 import datetime
 import fnmatch
 import glob
 import ftplib
 import calendar
+import urllib.request
+import urllib.error
+import warnings
 
 import matplotlib
 matplotlib.use('Agg')
@@ -242,6 +247,265 @@ def read_goes(sTime,eTime=None,sat_nr=15,data_dir='data/goes'):
 
     data_dict['xray'].index  = [dtGreg_to_datetime(x) for x in data_dict['xray'].index]
     data_dict['orbit'].index = [dtGreg_to_datetime(x) for x in data_dict['orbit'].index]
+    return data_dict
+
+# NCEI HTTPS archives. read_goes() above targets ftp://satdat.ngdc.noaa.gov, which NOAA
+# retired along with anonymous FTP, so it can no longer download anything -- it fails
+# closed, printing 'GOES Data ERROR.' and returning None. These two archives replace it
+# and between them span 2009 to present.
+#
+# Two eras with different file layouts and variable names:
+#   pre-R  (GOES 8-15):  one netCDF per month, vars A_AVG / B_AVG, time_tag
+#   GOES-R (GOES 16-19): one netCDF per day,   vars xrsa_flux / xrsb_flux, time
+# read_goes_ncei() normalizes both to the A_AVG / B_AVG names the plotting and
+# flare-finding routines here already expect.
+_NCEI_PRE_R_DIR  = ('https://www.ncei.noaa.gov/data/goes-space-environment-monitor/'
+                    'access/avg/{year:04d}/{month:02d}/goes{sat:02d}/netcdf/')
+_NCEI_GOES_R_DIR = ('https://data.ngdc.noaa.gov/platforms/solar-space-observing-satellites/'
+                    'goes/goes{sat:02d}/l2/data/xrsf-l2-avg1m/{year:04d}/{month:02d}/')
+
+# GOES-R quality flags: 0 good_data, 1 eclipse, 2 bad_data, 4 interpolated.
+# Eclipse and bad_data are dropped; interpolated is kept.
+_GOES_R_BAD_FLAGS = (1, 2)
+
+def goes_xrs_candidates(year):
+    """Prioritized [(sat_nr, era)] candidates carrying XRS for a given year.
+
+    Ordered most- to least-preferred; read_goes_ncei() tries them in turn and takes
+    the first that actually has data, so these windows only need to be roughly right.
+    'era' selects the archive layout: 'pre_r' or 'goes_r'.
+
+    Ordering follows the *primary operational* satellite for each epoch, because that
+    is the one whose fluxes reproduce the standard flare classifications. This matters:
+    for the 2017-09-06 flare, GOES-15 (operational primary) peaks at 9.33e-4 W/m^2,
+    i.e. X9.3, matching the accepted classification, while GOES-16 -- then still in
+    post-launch test and reporting on a different flux scale -- peaks at 5.17e-4, i.e.
+    X5.2. GOES-13 reads X10.4. So GOES-15 is preferred through its 2020-03 end of life
+    even after GOES-16 data becomes available.
+
+    Corollary worth remembering when comparing events across the archive: X-class
+    numbers are NOT directly comparable between the pre-R and GOES-R eras. Flare
+    magnitudes from 2015 and 2024 sit on different scales.
+    """
+    if year >= 2025: return [(19,'goes_r'),(18,'goes_r'),(16,'goes_r')]
+    if year >= 2023: return [(18,'goes_r'),(16,'goes_r')]
+    # GOES-15 XRS ended 2020-03-04, so 2020 leads with the GOES-R series but keeps 15
+    # as a fallback for January through early March.
+    if year >= 2020: return [(16,'goes_r'),(17,'goes_r'),(18,'goes_r'),(15,'pre_r')]
+    if year >= 2010: return [(15,'pre_r'),(14,'pre_r'),(13,'pre_r')]
+    return [(14,'pre_r'),(11,'pre_r'),(12,'pre_r'),(10,'pre_r')]
+
+def _ncei_listing(url,timeout=60):
+    """Filenames in an NCEI Apache directory index. [] if unreachable."""
+    try:
+        with urllib.request.urlopen(url,timeout=timeout) as resp:
+            html = resp.read().decode('utf-8','replace')
+    except (urllib.error.URLError,OSError) as e:
+        logging.info('NCEI listing failed for {0}: {1}'.format(url,e))
+        return []
+    # Apache indexes repeat each name in href and link text; dedupe but keep order.
+    names,seen = [],set()
+    for name in re.findall(r'href="([^"?/][^"]*\.nc)"',html):
+        if name not in seen:
+            seen.add(name)
+            names.append(name)
+    return names
+
+def _ncei_download(url,dest,timeout=300):
+    """Download to dest, returning True on success.
+
+    Writes to a .part file and renames, so an interrupted download never leaves a
+    truncated file that later runs would treat as a valid cache hit.
+    """
+    part = dest + '.part'
+    try:
+        with urllib.request.urlopen(url,timeout=timeout) as resp, open(part,'wb') as fh:
+            shutil.copyfileobj(resp,fh)
+        os.replace(part,dest)
+        return True
+    except (urllib.error.URLError,OSError) as e:
+        logging.info('NCEI download failed for {0}: {1}'.format(url,e))
+        if os.path.exists(part):
+            os.remove(part)
+        return False
+
+def _months_in_range(sTime,eTime):
+    """First-of-month dates covering [sTime,eTime)."""
+    months  = [datetime.date(sTime.year,sTime.month,1)]
+    end     = datetime.date(eTime.year,eTime.month,1)
+    while months[-1] < end:
+        months.append(add_months(months[-1]))
+    return months
+
+def _read_pre_r_nc(file_path):
+    """(DataFrame[A_AVG,B_AVG], metadata dict) from a pre-R monthly XRS file."""
+    with netCDF4.Dataset(file_path) as nc:
+        tt      = nc.variables['time_tag']
+        index   = pd.to_datetime(netCDF4.num2date(
+                    tt[:],tt.units,only_use_cftime_datetimes=False))
+        data    = {}
+        for out_col,var in (('A_AVG','A_AVG'),('B_AVG','B_AVG')):
+            arr = np.ma.filled(nc.variables[var][:].astype(float),np.nan)
+            arr[arr == -99999] = np.nan
+            data[out_col] = arr
+        md = {k:getattr(nc,k,None) for k in
+                ('institution','satellite_id','instrument','creation_date')}
+    return pd.DataFrame(data,index=index),md
+
+def _read_goes_r_nc(file_path):
+    """(DataFrame[A_AVG,B_AVG], metadata dict) from a GOES-R daily XRS file.
+
+    xrsa_flux/xrsb_flux are renamed to A_AVG/B_AVG so downstream code that predates
+    the GOES-R series keeps working unchanged. The wavelength bands are equivalent:
+    XRS-A is 0.05-0.4 nm, XRS-B is 0.1-0.8 nm.
+    """
+    with netCDF4.Dataset(file_path) as nc:
+        tt      = nc.variables['time']
+        index   = pd.to_datetime(netCDF4.num2date(
+                    tt[:],tt.units,only_use_cftime_datetimes=False))
+        data    = {}
+        for out_col,var,flag_var in (('A_AVG','xrsa_flux','xrsa_flag'),
+                                     ('B_AVG','xrsb_flux','xrsb_flag')):
+            arr = np.ma.filled(nc.variables[var][:].astype(float),np.nan)
+            if flag_var in nc.variables:
+                flags = np.ma.filled(nc.variables[flag_var][:],0)
+                arr[np.isin(flags,_GOES_R_BAD_FLAGS)] = np.nan
+            data[out_col] = arr
+        md = {'institution': getattr(nc,'institution',None),
+              'satellite_id': getattr(nc,'platform',None),
+              'instrument':   getattr(nc,'instrument',None),
+              'creation_date':getattr(nc,'date_created',None)}
+    return pd.DataFrame(data,index=index),md
+
+def read_goes_ncei(sTime,eTime=None,sat_nr=None,era=None,data_dir='data/goes'):
+    """Load 1-minute GOES XRS data from the NOAA NCEI HTTPS archives.
+
+    Drop-in replacement for read_goes() with the same return contract, but backed by
+    endpoints that still exist and spanning 2009 to present rather than only the
+    GOES-13/15 era. Downloaded files are cached in data_dir and reused.
+
+    X-ray flux resolves individual solar flares (1-minute cadence, and the 0.1-0.8 nm
+    B channel is what defines the A/B/C/M/X classes). This is the observable to use for
+    flare timing -- F10.7 cannot serve that purpose at any cadence, because DRAO
+    Penticton determines it once per day.
+
+    Parameters
+    ----------
+    sTime : datetime.datetime
+        Start of the interval.
+    eTime : Optional[datetime.datetime]
+        End of the interval, exclusive. Defaults to sTime + 1 day.
+    sat_nr : Optional[int]
+        Force a specific GOES satellite. Default None auto-selects per year via
+        goes_xrs_candidates(), trying each until one yields data.
+    era : Optional[str]
+        'pre_r' or 'goes_r'. Only consulted when sat_nr is given explicitly.
+    data_dir : Optional[str]
+        Local cache directory.
+
+    Returns
+    -------
+    Dict with the same shape read_goes() returns: 'xray' (DataFrame indexed by
+    datetime with A_AVG, B_AVG, ut_hrs) and 'metadata'. None if no data could be
+    obtained for the interval.
+
+    Note that 'orbit' data, and therefore the 'slt_mid' column, are not provided --
+    the GOES-R XRS product does not carry the spacecraft ephemeris that read_goes()
+    pulled from the pre-R files.
+    """
+    if eTime is None:
+        eTime = sTime + datetime.timedelta(days=1)
+
+    os.makedirs(data_dir,exist_ok=True)
+
+    if sat_nr is not None:
+        # An explicit satellite with no era stated: infer from the series number.
+        candidates = [(sat_nr, era if era is not None
+                               else ('goes_r' if sat_nr >= 16 else 'pre_r'))]
+    else:
+        # Candidates are year-keyed; a window spanning a year boundary needs both.
+        candidates = []
+        for year in sorted({d.year for d in _months_in_range(sTime,eTime)}):
+            for cand in goes_xrs_candidates(year):
+                if cand not in candidates:
+                    candidates.append(cand)
+
+    frames,metadata = [],{}
+    used_sats = set()
+    for cand_sat,cand_era in candidates:
+        got_any = False
+        for month in _months_in_range(sTime,eTime):
+            if cand_era == 'pre_r':
+                base    = _NCEI_PRE_R_DIR.format(year=month.year,month=month.month,sat=cand_sat)
+                pattern = 'g{0:02d}_xrs_1m_*.nc'.format(cand_sat)
+                reader  = _read_pre_r_nc
+                wanted  = None                  # monthly file; take whatever is there
+            else:
+                base    = _NCEI_GOES_R_DIR.format(year=month.year,month=month.month,sat=cand_sat)
+                pattern = 'dn_xrsf-l2-avg1m_g{0:02d}_d*.nc'.format(cand_sat)
+                reader  = _read_goes_r_nc
+                # Daily files: fetch only the days actually in range.
+                wanted  = set()
+                day     = datetime.date(sTime.year,sTime.month,sTime.day)
+                while day < eTime.date() + datetime.timedelta(days=1):
+                    wanted.add(day.strftime('%Y%m%d'))
+                    day += datetime.timedelta(days=1)
+
+            cached = [os.path.basename(p) for p in
+                      glob.glob(os.path.join(data_dir,pattern))]
+            names  = [n for n in _ncei_listing(base) if fnmatch.fnmatch(n,pattern)]
+            names  = sorted(set(names) | set(cached))
+            if wanted is not None:
+                names = [n for n in names
+                         if any('_d{0}_'.format(d) in n for d in wanted)]
+
+            for name in names:
+                path = os.path.join(data_dir,name)
+                if not os.path.exists(path):
+                    if not _ncei_download(base + name,path):
+                        continue
+                try:
+                    df,md = reader(path)
+                except Exception as e:
+                    # A corrupt cached file should not kill the whole request; drop it
+                    # so the next run re-downloads.
+                    warnings.warn('{0}: unreadable GOES file ({1}: {2}); removing from '
+                                  'cache'.format(name,type(e).__name__,e),RuntimeWarning)
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+                    continue
+                frames.append(df)
+                metadata[name] = md
+                got_any = True
+
+        if got_any:
+            used_sats.add(cand_sat)
+            break   # first candidate with data wins; don't stack satellites
+
+    if not frames:
+        warnings.warn('No GOES XRS data available from NCEI for {0} to {1} '
+                      '(tried satellites {2}).'.format(
+                          sTime,eTime,[c[0] for c in candidates]),RuntimeWarning)
+        return
+
+    df_xray = pd.concat(frames).sort_index()
+    df_xray = df_xray[~df_xray.index.duplicated(keep='first')]
+    df_xray = df_xray[(df_xray.index >= sTime) & (df_xray.index < eTime)]
+    if len(df_xray) == 0:
+        warnings.warn('GOES XRS files found but no samples fall in {0} to {1}.'.format(
+                          sTime,eTime),RuntimeWarning)
+        return
+
+    df_xray['ut_hrs'] = df_xray.index.map(ut_hours)
+
+    data_dict = {'xray':df_xray,'metadata':metadata}
+    data_dict['metadata']['variables'] = {
+        'A_AVG': {'long_label':'x-ray (0.05-0.4 nm) irradiance','units':'W/m^2'},
+        'B_AVG': {'long_label':'x-ray (0.1-0.8 nm) irradiance', 'units':'W/m^2'},
+    }
+    data_dict['sat_nrs'] = sorted(used_sats)
     return data_dict
 
 def goes_plot_hr(goes_data,ax,var_tags = ['B_AVG'],xkey='ut_hr',xlim=(0,24),ymin=1e-9,ymax=1e-2,
@@ -588,13 +852,21 @@ def find_flares(goes_data,window_minutes=60,min_class='X1',sTime=None,eTime=None
         sWin = win - time_delta_half
         eWin = win + time_delta_half
 
+        # An all-NaN window (eclipse, data gap, flagged-bad stretch) makes idxmax
+        # return pd.NaT, and `NaT is np.nan` is False -- so the old identity check let
+        # NaT through into `keys` and the b_avg[keys] lookup below raised
+        # "KeyError: '[NaT] not in index'". Test for emptiness up front, which also
+        # avoids the deprecated all-NA idxmax call.
+        win_vals = b_avg[sWin:eWin]
+        if len(win_vals) == 0 or win_vals.isna().all():
+            continue
         try:
-            idx_max = b_avg[sWin:eWin].idxmax()
-            if idx_max is np.nan:
-                continue
-            keys.append(idx_max)
-        except:
-            pass
+            idx_max = win_vals.idxmax()
+        except (ValueError,TypeError):
+            continue
+        if pd.isna(idx_max):
+            continue
+        keys.append(idx_max)
         
     df_win      = pd.DataFrame({'B_AVG':b_avg[keys]})
 

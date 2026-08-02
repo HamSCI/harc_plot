@@ -196,7 +196,25 @@ class Omni():
         lines.append(tmp)
         ax.set_ylabel(ylabel)
         ax.axhline(0,color='k',ls='--')
-        ax.set_ylim(-200,100)
+
+        # Expand-only y-limits. (-200,100) is a floor, not a cap: intense storms go
+        # below -200 nT (-223 on 2015-03-17, -412 on 2024-05-10) and were previously
+        # clipped off the axis entirely. Limits are computed over the plotted window
+        # only -- the SYM-H branch above hands matplotlib the full multi-decade series
+        # and relies on set_xlim to window it, so a naive min/max would pick up the
+        # all-time extreme. Plots whose data already fits are unchanged.
+        ylim    = [-200.,100.]
+        win     = pd.Series(yy,index=xx)
+        win     = win[(win.index >= xlim[0]) & (win.index <= xlim[1])]
+        if len(win) > 0:
+            pad     = 20.
+            y_min   = np.nanmin(win.values)
+            y_max   = np.nanmax(win.values)
+            if np.isfinite(y_min):
+                ylim[0] = min(ylim[0], float(y_min) - pad)
+            if np.isfinite(y_max):
+                ylim[1] = max(ylim[1], float(y_max) + pad)
+        ax.set_ylim(*ylim)
         ax.set_xlim(xlim)
 
         # Kp ###################################

@@ -3,6 +3,7 @@ tqdm
 numpy
 pandas
 h5py
+tables
 cartopy
 ipdb
 library

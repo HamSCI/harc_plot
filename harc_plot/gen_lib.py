@@ -11,16 +11,19 @@ import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 
+import tables
+import warnings
+
 import pickle
 import bz2
 
 from . import geopack
 from . import calcSun
 
-de_prop         = {'marker':'^','edgecolor':'k','facecolor':'white'}
-dxf_prop        = {'marker':'*','color':'blue'}
-dxf_leg_size    = 150
-dxf_plot_size   = 50
+de_prop           = {'marker':'^','edgecolor':'k','facecolor':'white'}
+dxf_prop          = {'marker':'*','color':'blue'}
+dxf_leg_size      = 150
+dxf_plot_size     = 50
 
 rcp = matplotlib.rcParams
 rcp['figure.titlesize']     = 'xx-large'
@@ -289,29 +292,30 @@ class BandData(object):
         self.cb_safe_dct    = fc
 
 def cdict_to_cmap(cdict,name='CustomCMAP',vmin=0.,vmax=30.):
-	norm = matplotlib.colors.Normalize(vmin=vmin,vmax=vmax)
-	
-	red   = []
-	green = []
-	blue  = []
-	
-	keys = list(cdict.keys())
-	keys.sort()
-	
-	for x in keys:
-	    r,g,b, = cdict[x]
-	    x = norm(x)
-	    r = r/255.
-	    g = g/255.
-	    b = b/255.
-	    red.append(   (x, r, r))
-	    green.append( (x, g, g))
-	    blue.append(  (x, b, b))
-	cdict = {'red'   : tuple(red),
-		 'green' : tuple(green),
-		 'blue'  : tuple(blue)}
-	cmap  = matplotlib.colors.LinearSegmentedColormap(name, cdict)
-	return cmap
+    norm = matplotlib.colors.Normalize(vmin=vmin,vmax=vmax)
+    
+    red   = []
+    green = []
+    blue  = []
+    
+    keys = list(cdict.keys())
+    keys.sort()
+    
+    for x in keys:
+        r,g,b, = cdict[x]
+        x = norm(x)
+        r = r/255.
+        g = g/255.
+        b = b/255.
+        red.append(   (x, r, r))
+        green.append( (x, g, g))
+        blue.append(  (x, b, b))
+    
+    cdict = {'red'   : tuple(red),
+         'green' : tuple(green),
+         'blue'  : tuple(blue)}
+    cmap  = matplotlib.colors.LinearSegmentedColormap(name, cdict)
+    return cmap
 
 def sun_pos(dt=None):
     """This function computes a rough estimate of the coordinates for
@@ -445,30 +449,184 @@ def adjust_axes(ax_0,ax_1):
     ax_0_pos[2] = ax_1_pos[2]
     ax_0.set_position(ax_0_pos)
 
-def regional_filter(region,df,kind='mids'):
-    rgnd    = regions[region]
+def regional_filter(region, df, kind='mids'):
+    rgnd = regions[region]
     lat_lim = rgnd['lat_lim']
     lon_lim = rgnd['lon_lim']
 
     if kind == 'mids':
-        tf_md_lat   = np.logical_and(df.md_lat >= lat_lim[0], df.md_lat < lat_lim[1])
-        tf_md_long  = np.logical_and(df.md_long >= lon_lim[0], df.md_long < lon_lim[1])
-        tf_0        = np.logical_and(tf_md_lat,tf_md_long)
-        tf          = tf_0
-        df          = df[tf].copy()
+        tf = ((df['md_lat']  >= lat_lim[0]) & (df['md_lat']  < lat_lim[1]) &
+              (df['md_long'] >= lon_lim[0]) & (df['md_long'] < lon_lim[1]))
     elif kind == 'endpoints':
-        tf_rx_lat   = np.logical_and(df.rx_lat >= lat_lim[0], df.rx_lat < lat_lim[1])
-        tf_rx_long  = np.logical_and(df.rx_long >= lon_lim[0], df.rx_long < lon_lim[1])
-        tf_rx       = np.logical_and(tf_rx_lat,tf_rx_long)
+        tf_rx = ((df['rx_lat']  >= lat_lim[0]) & (df['rx_lat']  < lat_lim[1]) &
+                 (df['rx_long'] >= lon_lim[0]) & (df['rx_long'] < lon_lim[1]))
+        tf_tx = ((df['tx_lat']  >= lat_lim[0]) & (df['tx_lat']  < lat_lim[1]) &
+                 (df['tx_long'] >= lon_lim[0]) & (df['tx_long'] < lon_lim[1]))
+        tf = tf_rx | tf_tx
+    else:
+        raise ValueError(f"regional_filter kind must be 'mids' or 'endpoints', got {kind!r}")
 
-        tf_tx_lat   = np.logical_and(df.tx_lat >= lat_lim[0], df.tx_lat < lat_lim[1])
-        tf_tx_long  = np.logical_and(df.tx_long >= lon_lim[0], df.tx_long < lon_lim[1])
-        tf_tx       = np.logical_and(tf_tx_lat,tf_tx_long)
-        tf          = np.logical_or(tf_rx,tf_tx)
+    return df[tf].copy()
 
-        df          = df[tf].copy()
 
-    return df
+# Madrigal ssrc 3-letter code -> harc_plot integer source code (keep in sync with `sources` dict above).
+_MADRIGAL_SSRC_MAP = {'WSP': 1, 'RBN': 2, 'PSK': 3}
+
+# Band plan: (low_MHz, high_MHz, band_meters). The 'band' column stores wavelength
+# in meters to match the existing harc_plot convention (BandData's 'meters' field and
+# calculate_histograms' `df["band"] == band["meters"]` filter). Includes non-ham /
+# experimental frequencies observed in Madrigal data so nothing is silently dropped;
+# BandData decides what actually gets plotted. Out-of-band spots are flagged with -1.
+_BAND_EDGES_MHZ = [
+    ( 0.135,   0.138,    2200),  # 2200 m (LF experimental, ~137 kHz)
+    ( 1.8,     2.0,       160),  #  160 m
+    ( 3.5,     4.0,        80),  #   80 m
+    ( 5.25,    5.50,       60),  #   60 m (widened to catch 5.288 MHz spots)
+    ( 7.0,     7.3,        40),  #   40 m
+    (10.1,    10.15,       30),  #   30 m
+    (14.0,    14.35,       20),  #   20 m
+    (18.068,  18.168,      17),  #   17 m
+    (21.0,    21.45,       15),  #   15 m
+    (24.89,   24.99,       12),  #   12 m
+    (28.0,    29.7,        10),  #   10 m
+    (50.0,    54.0,         6),  #    6 m
+    (144.0,  148.0,         2),  #    2 m
+]
+
+def _freq_MHz_to_band(freq_MHz):
+    """Vectorized: MHz -> band wavelength in meters (-1 = out-of-band)."""
+    out = np.full(len(freq_MHz), -1, dtype=np.int16)
+    for lo, hi, meters in _BAND_EDGES_MHZ:
+        out[(freq_MHz >= lo) & (freq_MHz < hi)] = meters
+    return out
+
+# Output column -> (raw Madrigal field, numpy dtype, converter). 'occurred', 'freq',
+# 'band', and 'source' are synthesized from raw fields rather than mapped 1:1.
+_MADRIGAL_NUMERIC_COLS = {
+    'dist_Km':  ('pthlen', np.float32),
+    'tx_lat':   ('txlat',  np.float32),
+    'tx_long':  ('txlon',  np.float32),
+    'rx_lat':   ('rxlat',  np.float32),
+    'rx_long':  ('rxlon',  np.float32),
+    'md_lat':   ('latcen', np.float32),
+    'md_long':  ('loncen', np.float32),
+    'snr_dB':   ('sn',     np.float32),
+}
+_MADRIGAL_STRING_COLS = {
+    'call_tx':  'call_sign_tx',
+    'call_rx':  'call_sign_rx',
+    'mode':     'smode',
+}
+_MADRIGAL_ALL_COLS = (
+    {'occurred', 'freq', 'band', 'source'}
+    | set(_MADRIGAL_NUMERIC_COLS) | set(_MADRIGAL_STRING_COLS)
+)
+
+def _detect_ut1_offset(t, probe=1000):
+    """
+    Detect per-file offset (seconds) between ut1_unix and the y/m/d/h/m/s columns.
+    Returns (offset_sec, uniform). Older Madrigal ham files carry a local-timezone
+    offset in ut1_unix/ut2_unix; the y/m/d/h/m/s columns are authoritative UTC.
+    `t` is a pytables Table; only the first `probe` rows are read.
+    """
+    n = min(probe, t.nrows)
+    ymd = pd.DataFrame({
+        'year':   np.char.decode(t.read(stop=n, field='year')).astype(int),
+        'month':  np.char.decode(t.read(stop=n, field='month')).astype(int),
+        'day':    np.char.decode(t.read(stop=n, field='day')).astype(int),
+        'hour':   np.char.decode(t.read(stop=n, field='hour')).astype(int),
+        'minute': np.char.decode(t.read(stop=n, field='min')).astype(int),
+        'second': np.char.decode(t.read(stop=n, field='sec')).astype(int),
+    })
+    ymd_sec = pd.to_datetime(ymd).values.astype('datetime64[s]').astype(np.int64)
+    diffs   = t.read(stop=n, field='ut1_unix').astype(np.int64) - ymd_sec
+    uniq    = np.unique(diffs)
+    return int(uniq[0]) if len(uniq) == 1 else int(np.median(diffs)), len(uniq) == 1
+
+def _parse_occurred_from_ymd(t):
+    """Full y/m/d/h/m/s parse (fallback for files with non-uniform ut1_unix offset)."""
+    return pd.to_datetime(pd.DataFrame({
+        'year':   np.char.decode(t.read(field='year')).astype(int),
+        'month':  np.char.decode(t.read(field='month')).astype(int),
+        'day':    np.char.decode(t.read(field='day')).astype(int),
+        'hour':   np.char.decode(t.read(field='hour')).astype(int),
+        'minute': np.char.decode(t.read(field='min')).astype(int),
+        'second': np.char.decode(t.read(field='sec')).astype(int),
+    }), utc=True)
+
+def load_madrigal_hdf5(file_path, columns=None):
+    """
+    Load a Madrigal ham-radio HDF5 file (rsdYYYY-MM-DD.01.hdf5) into a pandas DataFrame.
+
+    columns: iterable of output column names to load. None (default) loads all.
+        Available: occurred, freq, band, dist_Km, source, tx_lat, tx_long, rx_lat,
+        rx_long, md_lat, md_long, call_tx, call_rx, snr_dB, mode.
+        Selective loading is significantly faster and more memory-efficient on large
+        files: the pipeline-minimal set {occurred, band, dist_Km, md_lat, md_long,
+        source} fits a 114M-row day in ~3 GB vs ~78 GB for the full recarray read.
+
+    Timestamps: prefers the fast ut1_unix column, but detects the known ut1_unix
+    local-timezone offset per-file and corrects or falls back as needed.
+    """
+    if columns is None:
+        cols = set(_MADRIGAL_ALL_COLS)
+    else:
+        cols = set(columns)
+        unknown = cols - _MADRIGAL_ALL_COLS
+        if unknown:
+            raise ValueError(f"Unknown columns requested: {sorted(unknown)}. "
+                             f"Available: {sorted(_MADRIGAL_ALL_COLS)}")
+
+    data = {}
+    with tables.open_file(file_path, 'r') as h:
+        t = h.get_node('/Data/Table Layout')
+
+        if 'occurred' in cols:
+            offset_sec, uniform = _detect_ut1_offset(t)
+            if uniform and offset_sec == 0:
+                data['occurred'] = pd.to_datetime(t.read(field='ut1_unix'), unit='s', utc=True)
+            elif uniform:
+                warnings.warn(
+                    f"{os.path.basename(file_path)}: ut1_unix offset = {offset_sec:+d}s "
+                    "(local-timezone offset). Correcting from ut1_unix.",
+                    RuntimeWarning, stacklevel=2)
+                data['occurred'] = pd.to_datetime(
+                    t.read(field='ut1_unix') - offset_sec, unit='s', utc=True)
+            else:
+                warnings.warn(
+                    f"{os.path.basename(file_path)}: non-uniform ut1_unix offset; "
+                    "falling back to y/m/d/h/m/s parse (slow).",
+                    RuntimeWarning, stacklevel=2)
+                data['occurred'] = _parse_occurred_from_ymd(t)
+
+        if 'freq' in cols or 'band' in cols:
+            freq_MHz = (t.read(field='tfreq') / 1.0e6).astype(np.float32)
+            if 'freq' in cols:
+                data['freq'] = freq_MHz
+            if 'band' in cols:
+                data['band'] = _freq_MHz_to_band(freq_MHz)
+
+        if 'source' in cols:
+            ssrc_str = np.char.decode(t.read(field='ssrc'))
+            source_mapped = pd.Series(ssrc_str).map(_MADRIGAL_SSRC_MAP)
+            n_unknown = source_mapped.isna().sum()
+            if n_unknown:
+                unknown_vals = sorted(set(ssrc_str) - set(_MADRIGAL_SSRC_MAP))
+                warnings.warn(
+                    f"{os.path.basename(file_path)}: {n_unknown} rows have unknown "
+                    f"ssrc values {unknown_vals}; tagging source=0.",
+                    RuntimeWarning, stacklevel=2)
+            data['source'] = source_mapped.fillna(0).astype(np.int8).values
+
+        for out_col, (field, dtype) in _MADRIGAL_NUMERIC_COLS.items():
+            if out_col in cols:
+                data[out_col] = t.read(field=field).astype(dtype, copy=False)
+
+        for out_col, field in _MADRIGAL_STRING_COLS.items():
+            if out_col in cols:
+                data[out_col] = np.char.decode(t.read(field=field))
+
+    return pd.DataFrame(data)
 
 def load_spots_csv(date_str,data_sources=[1,2],loc_sources=None,
         rgc_lim=None,filter_region=None,filter_region_kind='mids'):
@@ -488,10 +646,16 @@ def load_spots_csv(date_str,data_sources=[1,2],loc_sources=None,
         E: Estimated using prefix
     """
 
-    hdf_path = "data/spot_csvs/{}.hdf".format(date_str)
+    hdf_path = "data/madrigal/rsd{}.01.hdf5".format(date_str)
     csv_path = "data/spot_csvs/{}.csv.bz2".format(date_str)
     if os.path.exists(hdf_path):
-        df  = pd.read_hdf(hdf_path)
+        # Load only the columns the downstream pipeline actually consumes. tx/rx coords
+        # are needed only for endpoints-kind regional filtering; skipping them on the
+        # mids path (the default) roughly halves peak memory on large files.
+        hdf_cols = {'occurred', 'band', 'dist_Km', 'md_lat', 'md_long', 'source'}
+        if filter_region_kind == 'endpoints':
+            hdf_cols |= {'tx_lat', 'tx_long', 'rx_lat', 'rx_long'}
+        df = load_madrigal_hdf5(hdf_path, columns=hdf_cols)
     elif os.path.exists(csv_path):
         df  = pd.read_csv(csv_path,parse_dates=['occurred'])
     else:
@@ -503,19 +667,24 @@ def load_spots_csv(date_str,data_sources=[1,2],loc_sources=None,
 
     # Select spotting networks
     if data_sources is not None:
-        tf  = df.source.map(lambda x: x in data_sources)
-        df  = df[tf].copy()
+        df = df[df['source'].isin(data_sources)].copy()
 
     if len(df) == 0:
         return
 
-    # Filter location source
+    # Filter location source (CSV path only; Madrigal HDF5 does not carry loc_source fields)
     if loc_sources is not None:
-        tf  = df.tx_loc_source.map(lambda x: x in loc_sources)
-        df  = df[tf].copy()
+        if 'tx_loc_source' not in df.columns:
+            warnings.warn(
+                "loc_sources filter requested but tx_loc_source/rx_loc_source "
+                "columns absent (Madrigal HDF5 path). Skipping.",
+                RuntimeWarning, stacklevel=2)
+        else:
+            tf  = df.tx_loc_source.map(lambda x: x in loc_sources)
+            df  = df[tf].copy()
 
-        tf  = df.rx_loc_source.map(lambda x: x in loc_sources)
-        df  = df[tf].copy()
+            tf  = df.rx_loc_source.map(lambda x: x in loc_sources)
+            df  = df[tf].copy()
 
     if len(df) == 0:
         return
@@ -525,24 +694,29 @@ def load_spots_csv(date_str,data_sources=[1,2],loc_sources=None,
         tf  = np.logical_and(df['dist_Km'] >= rgc_lim[0],
                              df['dist_Km'] <  rgc_lim[1])
         df  = df[tf].copy()
-
+    
     if len(df) == 0:
         return
 
-    midpoints       = geopack.midpoint(df["tx_lat"], df["tx_long"], df["rx_lat"], df["rx_long"])
-    df['md_lat']    = midpoints[0]
-    df['md_long']   = midpoints[1]
+    # Madrigal HDF5 already carries great-circle midpoints (latcen/loncen); only compute
+    # for the CSV path.
+    if 'md_lat' not in df.columns or 'md_long' not in df.columns:
+        midpoints     = geopack.midpoint(df["tx_lat"], df["tx_long"], df["rx_lat"], df["rx_long"])
+        df['md_lat']  = midpoints[0]
+        df['md_long'] = midpoints[1]
 
     # Regional Filtering
     if filter_region is not None:
-        df_raw  = df.copy()
-        df      = regional_filter(filter_region,df,kind=filter_region_kind)
+        df = regional_filter(filter_region, df, kind=filter_region_kind)
 
     if len(df) == 0:
         return
 
-    df["ut_hrs"]    = df['occurred'].map(lambda x: x.hour + x.minute/60. + x.second/3600.)
-    df['slt_mid']   = (df['ut_hrs'] + df['md_long']/15.) % 24.
+    # Vectorized ut_hrs / slt_mid derivation. The prior .map(lambda) was O(N) in Python
+    # and dominated load time on multi-million-row days. pandas' .dt accessor is compiled.
+    occ = df['occurred']
+    df["ut_hrs"]  = (occ.dt.hour + occ.dt.minute / 60. + occ.dt.second / 3600.).astype(np.float32)
+    df['slt_mid'] = ((df['ut_hrs'] + df['md_long'] / 15.) % 24.).astype(np.float32)
 
     return df
 
