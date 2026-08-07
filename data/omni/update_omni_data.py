@@ -11,7 +11,7 @@ Data source and suggested acknowledgement:
 
     Solar F10.7 cm radio flux data were obtained from the NASA OMNIWeb
     service (https://omniweb.gsfc.nasa.gov) as part of the OMNI2 hourly
-    compiled dataset (Papitashvili & King, 2020), which ingests F10.7
+    compiled dataset (Papitashvili & King, 2020, doi:10.48322/1shr-ht18), which ingests F10.7
     observations made at the Dominion Radio Astrophysical Observatory,
     Penticton, British Columbia, Canada, by Natural Resources Canada.
 
