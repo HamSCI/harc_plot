@@ -479,7 +479,7 @@ class ncLoader(object):
     def plot(self,baseout_dir='output',xlim=None,ylim=None,xunits='datetime',
             plot_sza=True,subdir=None,geospace_env=None,plot_region=None,
             plot_kpsymh=True,plot_goes=True,plot_f107=False,dst_param='SYM-H',
-            context_panels=('kpsymh','goes','f107'),
+            context_panels=('kpsymh','goes','f107'),overlay_curves=None,
             axvlines=None,axvlines_kw={},axvspans=None,time_format={},
             xkeys=None,log_z=None,**kwargs):
         # Validate before the no-data early return, so a mistyped key is caught on every
@@ -737,6 +737,21 @@ class ncLoader(object):
                         color = 'w'
                     else:
                         color = 'k'
+
+                    # Caller-supplied curves drawn on the band panel in data
+                    # coordinates: x matches the panel's x units (datetime when
+                    # xunits=='datetime'), y is dist_Km. Used to check a reduced
+                    # parameter against the distribution it claims to summarize.
+                    # Keyed by frequency in MHz; freq here is numpy, so cast.
+                    if overlay_curves:
+                        curves = overlay_curves.get(float(freq), [])
+                        for curve in curves:
+                            kw = {k:v for k,v in curve.items() if k not in ('x','y')}
+                            kw.setdefault('zorder',550)
+                            ax.plot(curve['x'],curve['y'],**kw)
+                        if any('label' in c for c in curves):
+                            ax.legend(loc='upper right',fontsize=16,framealpha=0.75)
+
                     plot_axv(axvlines,ax,color=color)
                     ax.tick_params(**tick_params)
                     self._format_timeticklabels(ax)
