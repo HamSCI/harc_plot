@@ -22,6 +22,8 @@ paths:
 - Pushing a feature branch and opening its PR is standing permission once the user approves the commit; ask before any other push
 
 ## Data Handling
+- Commit the rendered results a script produces (final figures, report PDFs) with the script, so the
+  repository shows what the code found; bulk inputs, caches and scratch output stay out
 - Do not commit bulk or raw data. Fetch it from its archive with a committed script, or regenerate it with a committed builder, so anyone can reproduce your inputs
 - Do not hard-code operator personal data, fine-grained station coordinates, or credentials into a script. See `.claude/rules/hamsci-data.md`
 - Cite the software your results depend on, including the upstream library that produces the primary measurement, and not only the code written for this project

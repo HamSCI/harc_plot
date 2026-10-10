@@ -44,3 +44,13 @@ command produces this format and appends it in the right order.
   which carry a TODO to confirm them; the PI confirms the final list. CITATION.cff, issue
   templates and GETTING_STARTED.md from the template were not added.
 - **Git Hash**: 5c97622, branch `template-pr-workflow`
+
+## [2026-10-10 12:10 UTC]
+- **Tool**: Claude (Anthropic), claude-opus-5-5 (1M context)
+- **Session Purpose**: Make committing rendered output standing guidance, at NAF's direction
+  (2026-10-10): memo and report PDFs and final figures capture the results of the code in
+  human-readable form and must be committed, or past work is hard to look back on.
+- **Sections/Files Affected**: `CLAUDE.md` ("Rendered Output"), `.claude/commands/commit.md` (step 2b), `.claude/rules/python-code.md`.
+- **Nature of Contribution**: Edit (workflow guidance).
+- **Human Review Status**: Pending review.
+- **Git Hash**: [fill in after committing]

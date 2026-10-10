@@ -35,10 +35,16 @@ must not be committed (see `.claude/rules/hamsci-data.md`):
 - Fine-grained station coordinates tied to an individual
 - Unpublished data from a collaborator or a project instrument
 - Credentials, API keys, tokens, or `.env` files with real values
-- LaTeX build artifacts, large binary data, or identifiable student records
+- LaTeX intermediates (`.aux`, `.log`, `.bbl` and the like), large binary data, or identifiable
+  student records. The compiled PDF is **not** an intermediate: it is committed with its source
 
 If any callsigns or contributor names were added or changed in this session, verify them against
 their source before committing. A misattributed observation is harder to retract than to prevent.
+
+### 2b. Check the human-readable record is included
+Every rendered output this session produced or changed (a memo or report PDF, final figures)
+is staged alongside its source and was rebuilt from the source being committed. A source change
+committed without its rebuilt PDF leaves the readable copy contradicting the code.
 
 ### 3. Ask the user for session purpose
 Draft a purpose of this session for the AI log. Show it to the user, and ask them to confirm.
