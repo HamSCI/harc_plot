@@ -64,3 +64,15 @@ command produces this format and appends it in the right order.
 - **Nature of Contribution**: Edit (workflow guidance).
 - **Human Review Status**: Pending review.
 - **Git Hash**: 30067ad, branch `curated-documents-only`
+
+## [2026-10-10 15:19 UTC]
+- **Tool**: Claude (Anthropic), claude-opus-5-5 (1M context)
+- **Session Purpose**: Adopt the upstream template's template-sync tooling (`HamSCI/ai_project_template` 1de9472..a09f960),
+  following `/template-sync` for the first time, so this repository is told when its template
+  changes.
+- **Sections/Files Affected**: `.claude/template.json` (new: upstream `HamSCI/ai_project_template`, synced at a09f960);
+  `.claude/hooks/template_check.sh`, `.claude/commands/template-sync.md` (new, from the template);
+  `.claude/settings.json` (session-start hook); `CLAUDE.md` ("Template Updates").
+- **Nature of Contribution**: Configuration, template sync.
+- **Human Review Status**: Pending review.
+- **Git Hash**: 356f660, branch `template-sync-2026-10-10`

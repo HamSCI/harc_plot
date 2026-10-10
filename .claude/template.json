@@ -1,0 +1,24 @@
+{
+  "role": "project",
+  "upstream": "HamSCI/ai_project_template",
+  "upstream_branch": "main",
+  "synced_commit": "a09f960b204dcb2e317d452bef009b93b3421cab",
+  "synced_on": "2026-10-10",
+  "customized": [
+    ".claude/commands/commit.md",
+    ".claude/rules/ai-governance.md",
+    ".claude/rules/python-code.md",
+    ".gitignore",
+    "CLAUDE.md"
+  ],
+  "not_adopted": [
+    ".claude/rules/latex-writing.md",
+    ".github/ISSUE_TEMPLATE/bug_report.md",
+    ".github/ISSUE_TEMPLATE/feature_request.md",
+    ".github/ISSUE_TEMPLATE/question.md",
+    "CITATION.cff",
+    "LICENSE",
+    "README.md",
+    "docs/GETTING_STARTED.md"
+  ]
+}
