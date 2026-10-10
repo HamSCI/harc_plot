@@ -13,3 +13,7 @@ scripts/*/output/
 data/histograms/World/20170701.data.nc.bz2
 data/spot_csvs/2017-07-01.csv.bz2
 harc_plot.egg-info/
+
+# Claude Code local state
+.claude/settings.local.json
+CLAUDE.local.md
