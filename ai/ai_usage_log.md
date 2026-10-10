@@ -75,4 +75,4 @@ command produces this format and appends it in the right order.
   `.claude/settings.json` (session-start hook); `CLAUDE.md` ("Template Updates").
 - **Nature of Contribution**: Configuration, template sync.
 - **Human Review Status**: Pending review.
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: 356f660, branch `template-sync-2026-10-10`
