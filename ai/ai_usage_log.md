@@ -53,4 +53,4 @@ command produces this format and appends it in the right order.
 - **Sections/Files Affected**: `CLAUDE.md` ("Rendered Output"), `.claude/commands/commit.md` (step 2b), `.claude/rules/python-code.md`.
 - **Nature of Contribution**: Edit (workflow guidance).
 - **Human Review Status**: Pending review.
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: 5631acc, branch `template-pr-workflow`
