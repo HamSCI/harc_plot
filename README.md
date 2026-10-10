@@ -86,13 +86,18 @@ which ingests F10.7 observations made at the Dominion Radio Astrophysical
 Observatory (DRAO), Penticton, British Columbia, Canada, by Natural Resources
 Canada.
 
+NASA/SPDF assigns a separate DOI to each OMNI product; the hourly product used here is
+`doi:10.48322/1shr-ht18`. The citation format and suggested acknowledgement wording below
+follow <https://omniweb.gsfc.nasa.gov/html/citing.html>.
+
 **Suggested acknowledgement for publications using this toolkit's F10.7 data:**
 
 > Solar F10.7 cm radio flux data were obtained from the NASA OMNIWeb service
 > (https://omniweb.gsfc.nasa.gov) as part of the OMNI2 hourly compiled dataset
-> (Papitashvili & King, 2020), which ingests F10.7 observations made at the
+> (Papitashvili & King, 2020, doi:10.48322/1shr-ht18), which ingests F10.7 observations made at the
 > Dominion Radio Astrophysical Observatory, Penticton, British Columbia,
-> Canada, by Natural Resources Canada.
+> Canada, by Natural Resources Canada. We acknowledge use of NASA/GSFC's Space
+> Physics Data Facility's OMNIWeb service and OMNI data.
 
 Note that F10.7 is determined **once per day**, so it cannot resolve solar
 flares. Use GOES X-ray irradiance for flare timing (see below).
