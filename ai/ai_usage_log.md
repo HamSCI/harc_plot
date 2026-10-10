@@ -63,4 +63,4 @@ command produces this format and appends it in the right order.
 - **Sections/Files Affected**: `CLAUDE.md` ("Curated Documents"), `.claude/commands/commit.md` (step 2b), `.claude/rules/python-code.md`.
 - **Nature of Contribution**: Edit (workflow guidance).
 - **Human Review Status**: Pending review.
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: 30067ad, branch `curated-documents-only`
