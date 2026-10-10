@@ -43,4 +43,4 @@ command produces this format and appends it in the right order.
 - **Notes**: The grant numbers are those in the Madrigal HARC manuscript draft's acknowledgments,
   which carry a TODO to confirm them; the PI confirms the final list. CITATION.cff, issue
   templates and GETTING_STARTED.md from the template were not added.
-- **Git Hash**: [fill in after committing]
+- **Git Hash**: 5c97622, branch `template-pr-workflow`
