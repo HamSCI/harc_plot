@@ -54,3 +54,13 @@ command produces this format and appends it in the right order.
 - **Nature of Contribution**: Edit (workflow guidance).
 - **Human Review Status**: Pending review.
 - **Git Hash**: 5631acc, branch `template-pr-workflow`
+
+## [2026-10-10 12:35 UTC]
+- **Tool**: Claude (Anthropic), claude-opus-5-5 (1M context)
+- **Session Purpose**: Narrow the committed-output rule to curated documents, at NAF's direction
+  (2026-10-10): "I'm looking more to capture PDFs that are memos, notes, or some more curated
+  level of analysis", not large generated outputs such as figure batches.
+- **Sections/Files Affected**: `CLAUDE.md` ("Curated Documents"), `.claude/commands/commit.md` (step 2b), `.claude/rules/python-code.md`.
+- **Nature of Contribution**: Edit (workflow guidance).
+- **Human Review Status**: Pending review.
+- **Git Hash**: [fill in after committing]
